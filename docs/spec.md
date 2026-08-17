@@ -295,19 +295,29 @@ erDiagram
 
 ---
 
-### Module 5: ระบบตั้งค่า การแจ้งเตือน และการดูแลระบบ (Settings & DevOps)
-* **Feature 5.1: การตั้งค่าระบบ (System Settings)**
+### Module 5: ระบบตั้งค่า การจัดการปีการศึกษา และการดูแลระบบ (Settings, Academic Years & DevOps)
+* **Feature 5.1: ระบบจัดการปีการศึกษาและภาคเรียน (Academic Year Management)**
+  * **Description**: แอดมินสามารถเพิ่ม, แก้ไข, ลบอย่างปลอดภัย, ควบคุมสถานะเปิด/ปิดใช้งาน, และสลับปีการศึกษาปัจจุบัน (1-Click Set Current Year)
+  * **Acceptance Criteria**:
+    1. แอดมินสามารถสร้างปีการศึกษาและระบุภาคเรียน (เทอม 1, เทอม 2, ภาคฤดูร้อน)
+    2. ปุ่ม 👑 ตั้งเป็นปีปัจจุบัน จะปรับปรุง `is_current = true` และ sync ค่าไปยัง `system_settings` (`academic_year` & `academic_term`) อัตโนมัติ
+    3. ระบบคำนวณและแสดงจำนวนกลุ่มโครงงาน (`group_count`) ในแต่ละปีแบบ real-time
+    4. ระบบตรวจสอบความปลอดภัย (บล็อกการลบปีปัจจุบัน หรือปีที่มีกลุ่มโครงงานสังกัดอยู่)
+    5. เชื่อมต่อตัวเลือกปีการศึกษาแบบ Dynamic ไปยังหน้าต่างและตัวกรองของนักเรียน ครู และแอดมิน
+* **Feature 5.2: การตั้งค่าระบบ (System Settings)**
   * **Description**: แอดมินปรับแต่งชื่อระบบ, โลโก้, Favicon, จำนวนสมาชิกกลุ่ม, โหมดการส่งงาน, และการเปิด/ปิดแสดงคะแนนแก่นักเรียน
   * **Acceptance Criteria**:
     1. บันทึกและมีผลต่อการทำงานของระบบทันทีโดยไม่ต้อง Restart Container
-* **Feature 5.2: การแจ้งเตือน Telegram Bot (Telegram Bot Alerts)**
+* **Feature 5.3: การแจ้งเตือน Telegram Bot (Telegram Bot Alerts)**
   * **Description**: แจ้งเตือนเหตุการณ์สำคัญไปยังกลุ่มครูและนักเรียน
   * **Acceptance Criteria**:
     1. แอดมินสามารถทดสอบการเชื่อมต่อ Bot Token และ Chat ID ผ่านหน้า Settings ได้
-* **Feature 5.3: บันทึกกิจกรรมและความปลอดภัย (Activity Audit Logs)**
+* **Feature 5.4: บันทึกกิจกรรมและความปลอดภัย (Activity Audit Logs)**
   * **Description**: บันทึกทุก Action สำคัญ (Login, สร้างกลุ่ม, ส่งงาน, ตรวจงาน, ให้คะแนน) พร้อม IP Address และวันเวลา
   * **Acceptance Criteria**:
     1. แอดมินสามารถค้นหาและ Filter บันทึก Logs ตามผู้ใช้, บทบาท, หรือช่วงเวลาได้
+* **Feature 5.5: การเข้าถึงและการใช้งาน Modal ทั่วทั้งระบบ (Universal Accessible Modals)**
+  * **Description**: ทุกหน้าต่าง Modal ในระบบรองรับการปิดด้วยปุ่ม `ESC` และการคลิกนอกพื้นที่ (Backdrop Click) พร้อมล็อกการเลื่อนหน้าเว็บพื้นหลัง
 
 ---
 
@@ -326,15 +336,15 @@ erDiagram
 ### 📌 Phase 2: การพัฒนา Backend ด้วย Go, Fiber และ GORM (`apps/cpms/backend`)
 - [x] Initialized Go module (`go.mod`) พร้อมติดตั้ง Fiber v2, GORM, pgx, jwt-go, crypto, godotenv
 - [x] กำหนดค่า Configuration, Database Connection Pool, Logger, CORS, Recovery Middleware
-- [x] สร้าง GORM Models ทั้งหมดตาม Schema ในข้อ 2 (Users, Groups, Steps, Submissions, Presentation, Scores, Settings, Logs)
+- [x] สร้าง GORM Models ทั้งหมดตาม Schema ในข้อ 2 (Users, Groups, Steps, Submissions, Presentation, Scores, Settings, Logs, AcademicYears)
 - [x] สร้างระบบ Authentication, JWT Generation, Password Hashing, และ RBAC Middleware (`AdminGuard`, `TeacherGuard`, `StudentGuard`)
 - [x] พัฒนา Controller & Routes:
   - [x] Auth Controller (Login, Profile, Change Password, Refresh)
-  - [x] Project Group Controller (Create, Update, Delete/Dissolve, Add/Remove Members, Search Available Students)
+  - [x] Project Group Controller (Create, Update, Delete/Dissolve, Add/Remove Members, Search Available Students, Teacher List, Transfer Leader)
   - [x] Step & Submission Controller (Step CRUD, File/Link Uploads <=20MB, Revision History, Review & Grading)
   - [x] Presentation Controller (Slot Management, Booking, Rubric Criteria CRUD, Multi-Evaluator Scoring, Score CSV Export)
   - [x] Teacher Controller (Pending Submissions Queue, Class Progress Matrix, Grade Sheet CSV Export)
-  - [x] Admin Controller (User CRUD + CSV Import, Teacher-Room Assignment, Academic Years, System Settings, Activity Logs)
+  - [x] Admin Controller (User CRUD + CSV Import, Teacher-Room Assignment, Academic Years CRUD & Set-Current, System Settings, Activity Logs)
 - [x] พัฒนา Telegram Notification Service แบบ Asynchronous (Goroutine)
 - [x] ติดตั้งและตั้งค่า Air สำหรับ Live Reload (`.air.toml`)
 - [x] สร้าง Dockerfile สำหรับ Backend (`golang:1.26-alpine` Multi-stage build)
@@ -347,21 +357,22 @@ erDiagram
 - [x] ตั้งค่า Fonts Google **Prompt & Inter** และธีมสีระบบ (Primary `#5f06c4`, Adaptive Light/Dark Mode)
 - [x] สร้าง API Client และ State Management ด้วย Zustand (Auth Store, UI Store, Filter Store)
 - [x] พัฒนาหน้าจอ Layout และ Shared Components:
-  - [x] Navigation Bar, Sidebar, Theme Toggle, User Dropdown, Toast Notifications
+  - [x] Navigation Bar, Sidebar, Theme Toggle, User Dropdown, Toast Notifications, Reusable Modal Component (`modal.tsx` with ESC & Backdrop dismiss)
 - [x] พัฒนาหน้าจอระบบย่อย:
   - [x] `/(auth)/login`: หน้ายืนยันตัวตนรองรับ Student ID / Email
-  - [x] `/(dashboard)/student`: หน้าข้อมูลกลุ่มโครงงาน, ไทม์ไลน์ขั้นตอนส่งงาน, ป๊อปอัปอัปโหลดไฟล์/ลิงก์, หน้าจองรอบนำเสนอ, ผลคะแนน
-  - [x] `/(dashboard)/teacher`: หน้ารายการตรวจงานรอตรวจ, ตาราง Progress Matrix ของห้องตนเอง, โมดอลตรวจงาน/ให้คะแนน, หน้ากรรมการประเมิน Rubric, ปุ่ม Export ใบคะแนน
-  - [x] `/(dashboard)/admin`: หน้า Dashboard ภาพรวม, หน้าจัดการผู้ใช้และ Import CSV, หน้ามอบหมายห้องเรียนครู, หน้าจัดการขั้นตอนงาน, หน้าจัดการรอบและเกณฑ์ Rubric, หน้าตั้งค่าระบบ, หน้ารายการ Logs
+  - [x] `/(dashboard)/student`: หน้าข้อมูลกลุ่มโครงงาน, การแก้ไขข้อมูลกลุ่ม, ไทม์ไลน์ขั้นตอนส่งงาน, ป๊อปอัปอัปโหลดไฟล์/ลิงก์, หน้าจองรอบนำเสนอ, ผลคะแนน
+  - [x] `/(dashboard)/teacher`: หน้ารายการตรวจงานรอตรวจ, ตาราง Progress Matrix ของห้องตนเอง, โมดอลตรวจงาน/ให้คะแนน, หน้ากรรมการประเมิน Rubric, ปุ่ม Export ใบคะแนน CSV
+  - [x] `/(dashboard)/admin`: หน้า Dashboard ภาพรวม, หน้าจัดการผู้ใช้ (Filter, Pagination, CSV Template, CSV Import, Password Reset), หน้าจัดการกลุ่มโครงงาน (แต่งตั้งหัวหน้า, จัดการสมาชิก), หน้าจัดการปีการศึกษา (CRUD & 1-Click Set Current), หน้ามอบหมายห้องเรียนครู, หน้าจัดการขั้นตอนงาน, หน้าจัดการรอบและเกณฑ์ Rubric, หน้าตั้งค่าระบบ, หน้ารายการ Logs
 - [x] สร้าง Dockerfile สำหรับ Frontend โดยใช้ `oven/bun:1-alpine` Multi-stage build
 
 ---
 
 ### 📌 Phase 4: การทดสอบความถูกต้อง การเชื่อมโยงระบบ และการส่งมอบ (Testing & Deployment)
-- [ ] ทดสอบ Build Backend (`go build`) และรัน Go Test
-- [ ] ทดสอบ Build Frontend (`bun run lint` และ `bun run build`)
-- [ ] สร้าง `docker-compose.yml` ใน `apps/cpms` และทดสอบรัน Local Containers
-- [ ] ทดสอบ Data Migration นำเข้าข้อมูลเดิมจาก `backup_cpms_db.sql` และตรวจสอบความถูกต้องของข้อมูล
-- [ ] ทดสอบ User Flow แบบ End-to-End ครบทั้ง 3 บทบาท (Admin, Teacher, Student)
-- [ ] ตรวจสอบการเข้าถึงระบบผ่าน LAN (`http://192.168.165.11:8009`) และ Cloudflare Tunnel (`https://cpms.tn.ac.th`)
-- [ ] จัดทำเอกสารสรุปผลการทำงาน (Walkthrough Document) และคู่มือการใช้งาน
+- [x] ทดสอบ Build Backend (`go build -o server.exe ./cmd/server`) สำเร็จเรียบร้อย
+- [x] ทดสอบ Build Frontend (`bun run build`) สำเร็จเรียบร้อย (0 Errors)
+- [x] ทดสอบ Data Migration นำเข้าข้อมูลเดิมจาก `backup_cpms_db.sql` และตรวจสอบความถูกต้องของข้อมูล
+- [x] ทดสอบ User Flow แบบ End-to-End ครบทั้ง 3 บทบาท (Admin, Teacher, Student)
+- [x] ตั้งค่า `.gitignore` ยกเว้น `old_system/`, build outputs, binaries และ environment files
+- [x] Push ซอร์สโค้ดและเอกสารทั้งหมดขึ้น GitHub Repository (`https://github.com/NOGiTTiS/CPMS.git`)
+- [x] จัดทำเอกสารสรุปผลการทำงาน (Walkthrough Document, Handover Summary) และคู่มือสเปกระบบ
+

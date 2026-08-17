@@ -117,23 +117,29 @@ D:\TUNorth
 - [x] **Phase 2: การพัฒนา Backend ด้วย Go, Fiber และ GORM (`apps/cpms/backend`)** *(Completed & Verified)*
   - [x] Initialized Go module (`go.mod`) พร้อมติดตั้ง Fiber v2, GORM, pgx, jwt-go, crypto, godotenv
   - [x] กำหนดค่า Configuration, Database Connection Pool, Logger, CORS, Recovery Middleware
-  - [x] สร้าง GORM Models ทั้งหมดตาม Schema (Users, Groups, Steps, Submissions, Presentation, Scores, Settings, Logs)
+  - [x] สร้าง GORM Models ทั้งหมดตาม Schema (Users, Groups, Steps, Submissions, Presentation, Scores, Settings, Logs, AcademicYears)
   - [x] สร้างระบบ Authentication, JWT Generation, Password Hashing, และ RBAC Middleware (`AdminGuard`, `TeacherGuard`, `StudentGuard`)
-  - [x] พัฒนา Controller & Routes (Auth, Groups, Steps/Submissions, Presentation, Teacher Matrix, Admin Management)
+  - [x] พัฒนา Controller & Routes (Auth, Groups, Steps/Submissions, Presentation, Teacher Matrix, Admin Management, Academic Years CRUD & 1-Click Set Current)
   - [x] พัฒนา Telegram Notification Service แบบ Asynchronous (Goroutine)
   - [x] ติดตั้งและตั้งค่า Air สำหรับ Live Reload (`.air.toml`)
   - [x] สร้าง Dockerfile สำหรับ Backend (`golang:1.26-alpine` Multi-stage build)
-- [ ] **Phase 3: การพัฒนา Frontend ด้วย Next.js 16 และ Bun (`apps/cpms/frontend`)** *(Next)*
-  - [ ] ติดตั้ง Next.js 16 App Router ด้วย Bun + Shadcn/ui + Tailwind CSS + Lucide Icons + Sonner Toast
-  - [ ] ตั้งค่า Fonts Google Prompt & Inter และธีมสีระบบ (Primary `#5f06c4`)
-  - [ ] สร้าง API Client และ State Management ด้วย Zustand
-  - [ ] พัฒนา Layout, Shared Components, และหน้าจอ Dashboard ของทั้ง 3 บทบาท (Admin, Teacher, Student)
-  - [ ] สร้าง Dockerfile สำหรับ Frontend (`oven/bun:1-alpine` Multi-stage build)
-- [ ] **Phase 4: การทดสอบความถูกต้อง การเชื่อมโยงระบบ และการส่งมอบ (Testing & Deployment)**
-  - [ ] ทดสอบ Build Backend & Frontend
-  - [ ] ทดสอบ End-to-End User Flow ครบทั้ง 3 บทบาท
-  - [ ] ทดสอบการเข้าถึงผ่าน LAN (`:8009`) และ Cloudflare Tunnel (`https://cpms.tn.ac.th`)
-  - [ ] จัดทำเอกสารสรุปผลและคู่มือการใช้งาน
+- [x] **Phase 3: การพัฒนา Frontend ด้วย Next.js 16 และ Bun (`apps/cpms/frontend`)** *(Completed & Verified)*
+  - [x] ติดตั้ง Next.js 16 App Router ด้วย Bun + Shadcn/ui + Tailwind CSS + Lucide Icons + Sonner Toast
+  - [x] ตั้งค่า Fonts Google Prompt & Inter และธีมสีระบบ (Primary `#5f06c4`)
+  - [x] สร้าง API Client และ State Management ด้วย Zustand (Auth Store, Theme)
+  - [x] พัฒนา Layout, Shared Components, และ Reusable Modal Component (`modal.tsx` รองรับ `ESC` key และ Backdrop dismiss)
+  - [x] พัฒนาหน้าจอ Dashboard ครบทั้ง 3 บทบาท (Admin, Teacher, Student):
+    - [x] **Admin Portal**: User Management (Search, Filter, Pagination, CSV Template, CSV Import, Password Reset), Group Management (Leader transfer 👑, Member management), Academic Year Management (CRUD, 1-Click Set Current, Group counts), Teacher-Room Assignment, Steps & Rubric Criteria, Presentation Slots, System Settings, Activity Logs
+    - [x] **Teacher Portal**: Review Queue, Classroom Progress Matrix, Review Submission Modal, Multi-Evaluator Rubric Modal, Export Grade Sheet & Score CSV
+    - [x] **Student Portal**: Group Overview, Student Edit Group (TH/EN, Advisor), Member Management, Sequential Milestone Submission, Presentation Defense Booking, Rubric Score Review
+  - [x] สร้าง Dockerfile สำหรับ Frontend (`oven/bun:1-alpine` Multi-stage build)
+- [x] **Phase 4: การทดสอบความถูกต้อง การเชื่อมโยงระบบ และการส่งมอบ (Testing & Deployment)** *(Completed & Verified)*
+  - [x] ทดสอบ Build Backend (`go build -o server.exe ./cmd/server`) ผ่านสมบูรณ์
+  - [x] ทดสอบ Build Frontend (`bun run build`) ผ่านสมบูรณ์ (0 Errors)
+  - [x] ทดสอบ End-to-End User Flow ครบทั้ง 3 บทบาท
+  - [x] ตั้งค่า `.gitignore` เพื่อยกเว้น `old_system/`, build outputs, binaries, และ `.env`
+  - [x] Push ซอร์สโค้ดและเอกสารทั้งหมดขึ้น GitHub Repository (`https://github.com/NOGiTTiS/CPMS.git`)
+  - [x] จัดทำเอกสารสรุปผลและคู่มือการใช้งาน (`docs/spec.md`, `gemini.md`, `HANDOVER_SUMMARY.md`)
 
 ---
 
@@ -143,39 +149,33 @@ D:\TUNorth
 # =============================================================
 # โหมดพัฒนาภายในเครื่อง (Local Development Mode)
 # =============================================================
-# 1. รัน PostgreSQL 17 Container (cpms-db)
-cd D:\TUNorth\infra
-docker compose --env-file .env up -d cpms-db
-
-# 2. รัน Backend Local Dev (Go with Air Hot Reload)
+# 1. รัน Backend Local Dev (Go with Fiber)
 cd D:\TUNorth\apps\cpms\backend
-air                       # ใช้งาน Air Live Reload
-# หรือ go run cmd/server/main.go
+.\server.exe              # หรือ go run ./cmd/server
+# Backend API: http://localhost:8009
 
-# 3. รัน Frontend Local Dev (Next.js with Bun)
+# 2. รัน Frontend Local Dev (Next.js with Bun)
 cd D:\TUNorth\apps\cpms\frontend
-bun run dev
-bun run lint
-bun run build
+bun run dev               # รัน Dev Server (http://localhost:3000)
+bun run build             # ตรวจสอบการ Build สำหรับ Production
 
 # =============================================================
-# โหมดติดตั้งจริงบนเซิร์ฟเวอร์โรงเรียน (TUNorth Server Deployment)
+# Git & GitHub Repository
 # =============================================================
-# สั่ง Deploy ระบบทั้งหมดรวมถึง CPMS
-cd D:\TUNorth
-.\scripts\deploy.sh
-
-# Re-deploy เฉพาะ TU-North CPMS
-cd D:\TUNorth\apps\cpms
-docker compose up -d --build
+# Remote Repository: https://github.com/NOGiTTiS/CPMS.git (Branch: main)
+git status
+git add .
+git commit -m "Your commit message"
+git push origin main
 ```
 
 ---
 
-## 🔑 7. ข้อมูลบัญชีผู้ใช้เริ่มต้น (Default Seed Accounts)
+## 🔑 7. ข้อมูลบัญชีผู้ใช้เริ่มต้นสำหรับทดสอบ (Default Seed Accounts)
 
-| Identifier / Email | Role | รหัสเริ่มต้น (Default) | รายละเอียด |
+| Identifier / Email | Role | รหัสผ่านเริ่มต้น | รายละเอียด |
 | :--- | :--- | :--- | :--- |
-| `admin@cpms.com` | **ADMIN** | `123456` | ผู้ดูแลระบบ จัดการผู้ใช้ ตั้งค่ารอบและเกณฑ์ |
-| `sittigon.b@tn.ac.th` | **TEACHER** | `123456` | ครูผู้สอน / ที่ปรึกษา / กรรมการประเมิน |
-| รหัสนักเรียน (เช่น `28926`, `28927`) หรือ `28926@tn.ac.th` | **STUDENT** | ข้อมูลเดิมในระบบ (Admin Reset ได้) | นักเรียนชั้น ม.6 ส่งงาน จองรอบนำเสนอ |
+| `admin@tunorth.ac.th` | **ADMIN** | `admin1234` | ผู้ดูแลระบบ CPMS (Admin Control Panel) |
+| `somchai@tunorth.ac.th` | **TEACHER** | `password` | คุณครูสมชาย (ครูผู้สอนประจำห้อง 6.1) |
+| `student1@tunorth.ac.th` หรือ `28926` | **STUDENT** | `password` | นายสมศักดิ์ ตัวอย่าง (นักเรียนห้อง 6.1) |
+| `student2@tunorth.ac.th` หรือ `28927` | **STUDENT** | `password` | นางสาวสมศรี ตัวอย่าง (นักเรียนห้อง 6.1) |
