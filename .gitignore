@@ -1,0 +1,64 @@
+# ==========================================
+# Legacy System
+# ==========================================
+old_system/
+
+# ==========================================
+# Dependencies
+# ==========================================
+node_modules/
+*/node_modules/
+.pnp
+.pnp.js
+
+# ==========================================
+# Environment Variables & Secrets
+# ==========================================
+.env
+.env*.local
+*.env
+backend/.env
+frontend/.env*
+
+# ==========================================
+# Build Outputs & Binaries
+# ==========================================
+*.exe
+server.exe
+backend/server.exe
+backend/tmp/
+backend/uploads/
+uploads/
+tmp/
+.next/
+*/.next/
+out/
+*/out/
+build/
+dist/
+
+# ==========================================
+# TypeScript & Testing
+# ==========================================
+*.tsbuildinfo
+coverage/
+*/coverage/
+
+# ==========================================
+# Logs & Debug
+# ==========================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# OS & IDE Files
+# ==========================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="th" class="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KruSittigonHub - Design System (Dark / Light Mode)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f0ff',
+              100: '#ebd9ff',
+              200: '#d7b3ff',
+              300: '#ba7eff',
+              400: '#9d47ff',
+              500: '#5f06c4', // MAIN BRAND
+              600: '#5203ad',
+              700: '#430293',
+              800: '#38037a',
+              900: '#2f0463',
+            }
+          },
+          fontFamily: {
+            sans: ['Prompt', 'Inter', 'sans-serif'],
+            en: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-sans min-h-screen transition-colors duration-300 pb-20">
+
+  <!-- TOP HEADER / TOOLBAR -->
+  <header class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md shadow-brand-500/30">K</div>
+        <div>
+          <h1 class="font-bold text-slate-900 dark:text-white text-base leading-tight">KruSittigonHub UI</h1>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 font-en">Design System v1.1 Mode Preview</p>
+        </div>
+      </div>
+
+      <!-- THEME TOGGLE BUTTON -->
+      <button id="themeToggle" onclick="toggleTheme()" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl text-xs font-semibold transition-all border border-slate-200 dark:border-slate-700 shadow-xs">
+        <span id="themeIcon">🌙</span>
+        <span id="themeLabel">Dark Mode</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- HERO BANNER -->
+  <div class="bg-gradient-to-br from-[#5f06c4] via-[#430293] to-[#2f0463] text-white py-12 px-6 shadow-xl mb-10">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div>
+        <span class="inline-block bg-white/10 backdrop-blur-md border border-white/20 text-brand-200 text-xs font-semibold tracking-wider uppercase px-3 py-1 rounded-full mb-3">
+          Interactive Design Tokens
+        </span>
+        <h2 class="text-3xl md:text-4xl font-bold tracking-tight">KruSittigonHub Design System</h2>
+        <p class="text-brand-100 text-sm mt-2 max-w-xl">
+          ระบบส่วนประกอบ UI และโทนสีที่รองรับการแสดงผลทั้งแบบ Light Mode และ Dark Mode สำหรับแพลตฟอร์มการเรียนรู้ออนไลน์
+        </p>
+      </div>
+      <div class="flex gap-3">
+        <div class="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-3 rounded-2xl text-center min-w-[120px]">
+          <div class="text-xs text-brand-200">Brand Color</div>
+          <div class="font-mono text-sm font-bold mt-0.5">#5f06c4</div>
+        </div>
+        <div class="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-3 rounded-2xl text-center min-w-[120px]">
+          <div class="text-xs text-brand-200">Active Theme</div>
+          <div id="badgeCurrentTheme" class="font-mono text-sm font-bold mt-0.5 text-amber-300">LIGHT</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-6 space-y-10">
+
+    <!-- 01 COLOR PALETTE -->
+    <section class="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors">
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+        <span class="w-6 h-6 rounded-lg bg-brand-500 text-white text-xs flex items-center justify-center font-mono">01</span>
+        Color Tokens (พาเลทสีและสถานะ)
+      </h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 ml-8">การปรับเปลี่ยนสีตามสภาวะแสง (Light & Dark Variants)</p>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <!-- Brand Primary -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-950 p-2">
+          <div class="h-16 rounded-xl bg-[#5f06c4] shadow-inner"></div>
+          <div class="p-2">
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Primary 500</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">Brand Color</div>
+            <div class="font-mono text-[11px] text-brand-600 dark:text-brand-300 font-semibold mt-1">#5f06c4</div>
+          </div>
+        </div>
+
+        <!-- Primary Hover -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-950 p-2">
+          <div class="h-16 rounded-xl bg-[#5203ad] shadow-inner"></div>
+          <div class="p-2">
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Primary Dark</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">Active State</div>
+            <div class="font-mono text-[11px] text-slate-600 dark:text-slate-400 mt-1">#5203ad</div>
+          </div>
+        </div>
+
+        <!-- Surface BG -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-950 p-2">
+          <div class="h-16 rounded-xl bg-slate-100 dark:bg-slate-800 shadow-inner border border-slate-200 dark:border-slate-700"></div>
+          <div class="p-2">
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Surface / Card</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">Adaptive BG</div>
+            <div class="font-mono text-[11px] text-slate-600 dark:text-slate-400 mt-1">Light / Dark</div>
+          </div>
+        </div>
+
+        <!-- Success Green -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-950 p-2">
+          <div class="h-16 rounded-xl bg-emerald-500 shadow-inner"></div>
+          <div class="p-2">
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Success</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">Passed / Done</div>
+            <div class="font-mono text-[11px] text-slate-600 dark:text-slate-400 mt-1">#10b981</div>
+          </div>
+        </div>
+
+        <!-- Warning Amber -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-950 p-2">
+          <div class="h-16 rounded-xl bg-amber-500 shadow-inner"></div>
+          <div class="p-2">
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Warning</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">Progress / Points</div>
+            <div class="font-mono text-[11px] text-slate-600 dark:text-slate-400 mt-1">#f59e0b</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 BUTTONS & ACTIONS -->
+    <section class="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors">
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+        <span class="w-6 h-6 rounded-lg bg-brand-500 text-white text-xs flex items-center justify-center font-mono">02</span>
+        Buttons & Interactive Controls
+      </h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 ml-8">ปุ่มกดและออปชันการใช้งานที่มี Hover / Dark State ชัดเจน</p>
+
+      <div class="flex flex-wrap gap-4 items-center">
+        <!-- Primary Button -->
+        <button class="bg-[#5f06c4] hover:bg-[#5203ad] active:scale-95 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-md shadow-purple-900/20 transition-all">
+          Primary Action
+        </button>
+
+        <!-- Secondary Outline Button -->
+        <button class="border-2 border-brand-500 text-brand-600 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/50 active:scale-95 px-5 py-2.5 rounded-xl text-xs font-semibold transition-all">
+          Outline Button
+        </button>
+
+        <!-- Soft Badge Accent Button -->
+        <button class="bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-200 hover:bg-brand-200 dark:hover:bg-brand-900 active:scale-95 px-4 py-2.5 rounded-xl text-xs font-medium transition-all">
+          Soft Surface Action
+        </button>
+
+        <!-- Disabled Button -->
+        <button disabled class="bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 px-5 py-2.5 rounded-xl text-xs font-medium cursor-not-allowed">
+          Disabled State
+        </button>
+      </div>
+    </section>
+
+    <!-- 03 FORM INPUTS -->
+    <section class="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors">
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+        <span class="w-6 h-6 rounded-lg bg-brand-500 text-white text-xs flex items-center justify-center font-mono">03</span>
+        Form Controls & Inputs
+      </h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 ml-8">กล่องป้อนข้อมูลและตัวเลือกในฟอร์มระบบ</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Text Input -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">อีเมลลงทะเบียน</label>
+          <input 
+            type="email" 
+            placeholder="student@krusittigon.com"
+            class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 text-xs outline-none transition-all font-en"
+          />
+        </div>
+
+        <!-- Select Dropdown -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">ระดับชั้นเรียน</label>
+          <select class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 text-xs outline-none transition-all">
+            <option>มัธยมศึกษาปีที่ 4</option>
+            <option>มัธยมศึกษาปีที่ 5</option>
+            <option>มัธยมศึกษาปีที่ 6 (เตรียมสอบ TPAT3)</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 CARDS & CONTENT PREVIEW -->
+    <section class="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors">
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+        <span class="w-6 h-6 rounded-lg bg-brand-500 text-white text-xs flex items-center justify-center font-mono">04</span>
+        LMS Content Cards (ตัวอย่างการแสดงผลการเรียน)
+      </h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 ml-8">การปรับโหมดสีของคอร์สเรียนและแถบความก้าวหน้า</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Course Card Example -->
+        <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start mb-3">
+              <span class="bg-brand-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-md">ฟิสิกส์ ม.6</span>
+              <span class="text-xs font-bold text-amber-500 dark:text-amber-400">★ 4.9</span>
+            </div>
+            <h4 class="font-bold text-slate-900 dark:text-white text-sm">การเคลื่อนที่แบบฮาร์มอนิกอย่างง่าย</h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">บทเรียนที่ 4/10 · โดย ครูสิทธิกร</p>
+          </div>
+
+          <div class="mt-6 space-y-2">
+            <div class="flex justify-between text-xs font-medium">
+              <span class="text-slate-600 dark:text-slate-400">ความก้าวหน้า</span>
+              <span class="text-brand-600 dark:text-brand-400 font-bold">75%</span>
+            </div>
+            <div class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-brand-500 rounded-full" style="width: 75%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stat Card Example -->
+        <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xl shrink-0">
+            ✓
+          </div>
+          <div>
+            <div class="text-2xl font-bold text-slate-900 dark:text-white">12 บทเรียน</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">เรียนจบแล้วในเดือนนี้</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- JAVASCRIPT FOR THEME TOGGLE -->
+  <script>
+    // ดึงสถานะ Theme จาก localStorage หรือใช้ System preference
+    function initTheme() {
+      const savedTheme = localStorage.getItem('kru_theme');
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      
+      if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+        applyTheme('dark');
+      } else {
+        applyTheme('light');
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      applyTheme(isDark ? 'light' : 'dark');
+    }
+
+    function applyTheme(theme) {
+      const icon = document.getElementById('themeIcon');
+      const label = document.getElementById('themeLabel');
+      const badge = document.getElementById('badgeCurrentTheme');
+
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        localStorage.setItem('kru_theme', 'dark');
+        icon.textContent = '☀️';
+        label.textContent = 'Light Mode';
+        badge.textContent = 'DARK';
+        badge.className = 'font-mono text-sm font-bold mt-0.5 text-cyan-300';
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        localStorage.setItem('kru_theme', 'light');
+        icon.textContent = '🌙';
+        label.textContent = 'Dark Mode';
+        badge.textContent = 'LIGHT';
+        badge.className = 'font-mono text-sm font-bold mt-0.5 text-amber-300';
+      }
+    }
+
+    // เรียกใช้งานคำสั่งเมื่อโหลดหน้าเว็บ
+    initTheme();
+  </script>
+
+</body>
+</html>

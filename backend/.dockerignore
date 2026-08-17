@@ -1,0 +1,7 @@
+uploads/
+*.exe
+.env
+.git
+.gitignore
+.vscode
+.idea
