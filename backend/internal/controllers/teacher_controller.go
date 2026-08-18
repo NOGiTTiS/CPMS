@@ -31,9 +31,27 @@ func (tc *TeacherController) GetAssignedRooms(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Unauthorized"})
 	}
 
+	yearQuery := strings.TrimSpace(c.Query("academic_year"))
+	if yearQuery == "" {
+		var currentYear models.AcademicYear
+		if err := tc.db.Where("is_current = true").First(&currentYear).Error; err == nil && currentYear.Year != "" {
+			yearQuery = currentYear.Year
+		}
+	}
+
 	var assignments []models.TeacherAssignment
-	if err := tc.db.Where("teacher_id = ?", teacherID).Find(&assignments).Error; err != nil {
+	query := tc.db.Where("teacher_id = ?", teacherID)
+	if yearQuery != "" {
+		query = query.Where("academic_year = ?", yearQuery)
+	}
+
+	if err := query.Find(&assignments).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to fetch room assignments"})
+	}
+
+	// Fallback if no assignments for current year, fetch all for teacher
+	if len(assignments) == 0 && yearQuery != "" {
+		tc.db.Where("teacher_id = ?", teacherID).Find(&assignments)
 	}
 
 	var rooms []string

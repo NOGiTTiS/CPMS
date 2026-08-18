@@ -145,6 +145,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	adminGroup.Post("/users/:id/reset-password", adminCtrl.ResetUserPassword)
 	adminGroup.Post("/users/import-csv", adminCtrl.ImportUsersCSV)
 	adminGroup.Post("/teacher-assignments", adminCtrl.AssignRoomToTeacher)
+	adminGroup.Post("/teacher-assignments/clone", adminCtrl.CloneTeacherAssignments)
 	adminGroup.Delete("/teacher-assignments/:id", adminCtrl.RemoveTeacherAssignment)
 	adminGroup.Get("/academic-years", adminCtrl.ListAcademicYears)
 	adminGroup.Post("/academic-years", adminCtrl.CreateAcademicYear)

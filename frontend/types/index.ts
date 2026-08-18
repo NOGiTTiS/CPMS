@@ -11,6 +11,7 @@ export interface User {
   is_active: boolean
   created_at?: string
   updated_at?: string
+  teacher_assignments?: TeacherAssignment[]
 }
 
 export interface GroupMember {
@@ -120,6 +121,7 @@ export interface TeacherAssignment {
   id: string
   teacher_id: string
   room: string
+  academic_year?: string
   created_at?: string
   teacher?: User
 }

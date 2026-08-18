@@ -15,7 +15,7 @@ import {
   ProjectStep,
   AcademicYear 
 } from "@/types";
-import { formatDate, formatScore } from "@/lib/utils";
+import { formatDate, formatScore, compareRooms } from "@/lib/utils"
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { 
@@ -75,12 +75,12 @@ export default function TeacherPage() {
     try {
       setIsLoading(true);
       // Assigned rooms
-      const roomsRes = await api.get<{ data?: string[]; rooms?: string[] }>("/teacher/assigned-rooms");
-      const roomsList = roomsRes?.data || roomsRes?.rooms || [];
+      const roomsRes = await api.get<{ data?: string[]; rooms?: string[] }>("/teacher/assigned-rooms")
+      const roomsList = (roomsRes?.data || roomsRes?.rooms || []).sort(compareRooms)
       if (Array.isArray(roomsList)) {
-        setAssignedRooms(roomsList);
+        setAssignedRooms(roomsList)
         if (roomsList.length > 0 && !selectedRoom) {
-          setSelectedRoom(roomsList[0]);
+          setSelectedRoom(roomsList[0])
         }
       }
 

@@ -19,6 +19,13 @@ export function formatDate(dateStr: string | null | undefined): string {
 }
 
 export function formatScore(val: number | null | undefined): string {
-  if (val === null || val === undefined) return "-";
-  return Number(val).toFixed(2);
+  if (val === null || val === undefined) return "-"
+  return Number(val).toFixed(2)
+}
+
+export function compareRooms(a: string, b: string): number {
+  if (!a && !b) return 0
+  if (!a) return -1
+  if (!b) return 1
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
 }

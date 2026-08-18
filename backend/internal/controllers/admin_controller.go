@@ -437,27 +437,98 @@ func (ac *AdminController) ImportUsersCSV(c *fiber.Ctx) error {
 // ----------------------------------------------------
 
 type AssignRoomRequest struct {
-	TeacherID uuid.UUID `json:"teacher_id"`
-	Room      string    `json:"room"`
+	TeacherID    uuid.UUID `json:"teacher_id"`
+	Room         string    `json:"room,omitempty"`
+	Rooms        []string  `json:"rooms,omitempty"`
+	AcademicYear string    `json:"academic_year,omitempty"`
 }
 
 func (ac *AdminController) AssignRoomToTeacher(c *fiber.Ctx) error {
 	var req AssignRoomRequest
-	if err := c.BodyParser(&req); err != nil || req.TeacherID == uuid.Nil || strings.TrimSpace(req.Room) == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Teacher ID and room are required"})
+	if err := c.BodyParser(&req); err != nil || req.TeacherID == uuid.Nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Teacher ID is required"})
 	}
 
+	// Determine academic year
+	academicYear := strings.TrimSpace(req.AcademicYear)
+	if academicYear == "" {
+		var currentYear models.AcademicYear
+		if err := ac.db.Where("is_current = true").First(&currentYear).Error; err == nil && currentYear.Year != "" {
+			academicYear = currentYear.Year
+		} else {
+			academicYear = "2568"
+		}
+	}
+
+	// Verify teacher exists and has TEACHER role
+	var teacher models.User
+	if err := ac.db.Where("id = ? AND role = ?", req.TeacherID, models.RoleTeacher).First(&teacher).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Teacher not found"})
+	}
+
+	// Batch sync mode if Rooms slice is provided
+	if req.Rooms != nil {
+		var cleanedRooms []string
+		seen := make(map[string]bool)
+		for _, r := range req.Rooms {
+			trimmed := strings.TrimSpace(r)
+			if trimmed != "" && !seen[trimmed] {
+				seen[trimmed] = true
+				cleanedRooms = append(cleanedRooms, trimmed)
+			}
+		}
+
+		err := ac.db.Transaction(func(tx *gorm.DB) error {
+			// Remove existing assignments for this teacher in this academic year
+			if err := tx.Where("teacher_id = ? AND academic_year = ?", req.TeacherID, academicYear).Delete(&models.TeacherAssignment{}).Error; err != nil {
+				return err
+			}
+
+			// Insert new assignments
+			for _, r := range cleanedRooms {
+				assignment := models.TeacherAssignment{
+					TeacherID:    req.TeacherID,
+					Room:         r,
+					AcademicYear: academicYear,
+					CreatedAt:    time.Now(),
+				}
+				if err := tx.Create(&assignment).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to update room assignments"})
+		}
+
+		var updatedAssignments []models.TeacherAssignment
+		ac.db.Where("teacher_id = ? AND academic_year = ?", req.TeacherID, academicYear).Find(&updatedAssignments)
+
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "Room assignments updated successfully",
+			"data":    updatedAssignments,
+		})
+	}
+
+	// Single room mode (Backward compatibility)
 	req.Room = strings.TrimSpace(req.Room)
+	if req.Room == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Room is required"})
+	}
 
 	var existing models.TeacherAssignment
-	if err := ac.db.Where("teacher_id = ? AND room = ?", req.TeacherID, req.Room).First(&existing).Error; err == nil {
+	if err := ac.db.Where("teacher_id = ? AND room = ? AND academic_year = ?", req.TeacherID, req.Room, academicYear).First(&existing).Error; err == nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Teacher is already assigned to this room"})
 	}
 
 	assignment := models.TeacherAssignment{
-		TeacherID: req.TeacherID,
-		Room:      req.Room,
-		CreatedAt: time.Now(),
+		TeacherID:    req.TeacherID,
+		Room:         req.Room,
+		AcademicYear: academicYear,
+		CreatedAt:    time.Now(),
 	}
 
 	if err := ac.db.Create(&assignment).Error; err != nil {
@@ -485,6 +556,62 @@ func (ac *AdminController) RemoveTeacherAssignment(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Room assignment removed successfully",
+	})
+}
+
+type CloneTeacherAssignmentsRequest struct {
+	FromYear string `json:"from_year"`
+	ToYear   string `json:"to_year"`
+}
+
+func (ac *AdminController) CloneTeacherAssignments(c *fiber.Ctx) error {
+	var req CloneTeacherAssignmentsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request body"})
+	}
+
+	req.FromYear = strings.TrimSpace(req.FromYear)
+	req.ToYear = strings.TrimSpace(req.ToYear)
+	if req.FromYear == "" || req.ToYear == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "from_year and to_year are required"})
+	}
+	if req.FromYear == req.ToYear {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "from_year and to_year must be different"})
+	}
+
+	var sourceAssignments []models.TeacherAssignment
+	if err := ac.db.Where("academic_year = ?", req.FromYear).Find(&sourceAssignments).Error; err != nil || len(sourceAssignments) == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": fmt.Sprintf("No assignments found for academic year %s", req.FromYear)})
+	}
+
+	clonedCount := 0
+	err := ac.db.Transaction(func(tx *gorm.DB) error {
+		for _, sa := range sourceAssignments {
+			var existing models.TeacherAssignment
+			if err := tx.Where("teacher_id = ? AND room = ? AND academic_year = ?", sa.TeacherID, sa.Room, req.ToYear).First(&existing).Error; err != nil {
+				newAssign := models.TeacherAssignment{
+					TeacherID:    sa.TeacherID,
+					Room:         sa.Room,
+					AcademicYear: req.ToYear,
+					CreatedAt:    time.Now(),
+				}
+				if err := tx.Create(&newAssign).Error; err != nil {
+					return err
+				}
+				clonedCount++
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to clone room assignments"})
+	}
+
+	return c.JSON(fiber.Map{
+		"success":      true,
+		"message":      fmt.Sprintf("Successfully cloned %d assignments from year %s to %s", clonedCount, req.FromYear, req.ToYear),
+		"cloned_count": clonedCount,
 	})
 }
 

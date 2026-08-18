@@ -16,7 +16,7 @@ import {
   Role,
   AcademicYear
 } from "@/types";
-import { formatDate } from "@/lib/utils";
+import { formatDate, compareRooms } from "@/lib/utils"
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { 
@@ -57,8 +57,11 @@ import {
   Eye,
   EyeOff,
   ToggleLeft,
-  ToggleRight
-} from "lucide-react";
+  Check,
+  X,
+  Copy,
+  CopyCheck
+} from "lucide-react"
 
 export default function AdminPage() {
   const { user } = useAuthStore();
@@ -158,8 +161,16 @@ export default function AdminPage() {
   const [selectedAddStudentId, setSelectedAddStudentId] = useState("");
 
   // Teacher Room Assignment Form
-  const [assignTeacherId, setAssignTeacherId] = useState("");
-  const [assignRoom, setAssignRoom] = useState("6.1");
+  const [assignTeacherId, setAssignTeacherId] = useState("")
+  const [selectedAssignRooms, setSelectedAssignRooms] = useState<string[]>([])
+  const [customRoomInput, setCustomRoomInput] = useState("")
+  const [isAssigningRooms, setIsAssigningRooms] = useState(false)
+  const [teacherSearchFilter, setTeacherSearchFilter] = useState("")
+  const [selectedAssignmentYear, setSelectedAssignmentYear] = useState<string>("")
+  const [showCloneModal, setShowCloneModal] = useState(false)
+  const [cloneFromYear, setCloneFromYear] = useState("")
+  const [cloneToYear, setCloneToYear] = useState("")
+  const [isCloning, setIsCloning] = useState(false)
 
   // Academic Year Form State (Create)
   const [yearInput, setYearInput] = useState("2569");
@@ -219,10 +230,12 @@ export default function AdminPage() {
       }
 
       // Academic Years
-      const yearsRes = await api.get<{ data?: AcademicYear[] }>("/admin/academic-years");
-      const yearsList = yearsRes?.data || [];
+      const yearsRes = await api.get<{ data?: AcademicYear[] }>("/admin/academic-years")
+      const yearsList = yearsRes?.data || []
       if (Array.isArray(yearsList)) {
-        setAcademicYears(yearsList);
+        setAcademicYears(yearsList)
+        const currYear = yearsList.find((y) => y.is_current)?.year || yearsList[0]?.year || "2568"
+        setSelectedAssignmentYear((prev) => prev || currYear)
       }
 
       // Steps
@@ -754,23 +767,143 @@ export default function AdminPage() {
     }
   };
 
-  // 5. Assign Room to Teacher
+  // 5. Assign Rooms to Teacher (Multi-Select Batch Sync by Academic Year)
+  const activeCurrentYear = academicYears.find((y) => y.is_current)?.year || "2568"
+  const currentAssignedYear = selectedAssignmentYear || activeCurrentYear
+
+  const handleSelectTeacherForAssignment = (teacherId: string, targetYear?: string) => {
+    setAssignTeacherId(teacherId)
+    if (!teacherId) {
+      setSelectedAssignRooms([])
+      return
+    }
+    const yearToUse = targetYear || currentAssignedYear
+    const t = teachers.find((u) => u.id === teacherId)
+    if (t && t.teacher_assignments && t.teacher_assignments.length > 0) {
+      const yearAssignments = t.teacher_assignments.filter(
+        (a) => (a.academic_year || "2568") === yearToUse
+      )
+      setSelectedAssignRooms(yearAssignments.map((a) => a.room))
+    } else {
+      setSelectedAssignRooms([])
+    }
+  }
+
+  const toggleRoomSelection = (room: string) => {
+    setSelectedAssignRooms((prev) =>
+      prev.includes(room) ? prev.filter((r) => r !== room) : [...prev, room]
+    )
+  }
+
+  const handleSelectAllRooms = (roomsList: string[]) => {
+    setSelectedAssignRooms(roomsList)
+  }
+
+  const handleClearAllRooms = () => {
+    setSelectedAssignRooms([])
+  }
+
+  const handleSelectOddRooms = (roomsList: string[]) => {
+    const odd = roomsList.filter((r) => {
+      const parts = r.split(".")
+      const num = parseInt(parts[parts.length - 1], 10)
+      return !isNaN(num) && num % 2 !== 0
+    })
+    setSelectedAssignRooms(odd)
+  }
+
+  const handleSelectEvenRooms = (roomsList: string[]) => {
+    const even = roomsList.filter((r) => {
+      const parts = r.split(".")
+      const num = parseInt(parts[parts.length - 1], 10)
+      return !isNaN(num) && num % 2 === 0
+    })
+    setSelectedAssignRooms(even)
+  }
+
+  const handleAddCustomRoom = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = customRoomInput.trim()
+    if (!trimmed) return
+    if (!selectedAssignRooms.includes(trimmed)) {
+      setSelectedAssignRooms((prev) => [...prev, trimmed])
+    }
+    setCustomRoomInput("")
+  }
+
   const handleAssignRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!assignTeacherId || !assignRoom) return;
+    e.preventDefault()
+    if (!assignTeacherId) {
+      toast.error("กรุณาเลือกครูผู้สอน")
+      return
+    }
+    const yearToUse = currentAssignedYear
 
     try {
+      setIsAssigningRooms(true)
       await api.post("/admin/teacher-assignments", {
         teacher_id: assignTeacherId,
-        room: assignRoom,
-      });
-      toast.success("มอบหมายห้องเรียนสำเร็จ");
-      fetchAllAdminData();
+        rooms: selectedAssignRooms,
+        academic_year: yearToUse
+      })
+      toast.success(
+        selectedAssignRooms.length > 0
+          ? `บันทึกการมอบหมาย ${selectedAssignRooms.length} ห้องเรียน (ปีการศึกษา ${yearToUse}) สำเร็จ`
+          : `ยกเลิกการมอบหมายห้องทั้งหมดของครูในปี ${yearToUse} สำเร็จ`
+      )
+      await fetchAllAdminData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "มอบหมายห้องเรียนไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "มอบหมายห้องเรียนไม่สำเร็จ"
+      toast.error(errorMsg)
+    } finally {
+      setIsAssigningRooms(false)
     }
-  };
+  }
+
+  const handleRemoveTeacherAssignment = async (assignmentId: string, room: string, teacherName: string) => {
+    if (!confirm(`ยืนยันยกเลิกการมอบหมายห้อง ม.${room} สำหรับ ${teacherName}?`)) return
+
+    try {
+      await api.delete(`/admin/teacher-assignments/${assignmentId}`)
+      toast.success(`ยกเลิกห้อง ม.${room} สำเร็จ`)
+      await fetchAllAdminData()
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "ยกเลิกการมอบหมายไม่สำเร็จ"
+      toast.error(errorMsg)
+    }
+  }
+
+  const handleCloneAssignments = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!cloneFromYear || !cloneToYear) {
+      toast.error("กรุณาเลือกปีต้นทางและปีปลายทาง")
+      return
+    }
+    if (cloneFromYear === cloneToYear) {
+      toast.error("ปีต้นทางและปีปลายทางต้องไม่เหมือนกัน")
+      return
+    }
+
+    try {
+      setIsCloning(true)
+      const res = await api.post<{ success: boolean; message: string; cloned_count: number }>(
+        "/admin/teacher-assignments/clone",
+        {
+          from_year: cloneFromYear,
+          to_year: cloneToYear
+        }
+      )
+      toast.success(res?.message || "คัดลอกข้อมูลสำเร็จ")
+      setShowCloneModal(false)
+      setSelectedAssignmentYear(cloneToYear)
+      await fetchAllAdminData()
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "คัดลอกการมอบหมายไม่สำเร็จ"
+      toast.error(errorMsg)
+    } finally {
+      setIsCloning(false)
+    }
+  }
 
   // 6. Save Step (Create or Update)
   const handleSaveStep = async (e: React.FormEvent) => {
@@ -938,14 +1071,26 @@ export default function AdminPage() {
     }
   };
 
-  // Dynamically extract available rooms from users
+  // Dynamically extract available rooms from users and groups
   const availableRooms = Array.from(
-    new Set(users.map((u) => u.room).filter((r): r is string => Boolean(r)))
-  ).sort((a, b) => {
-    const numA = parseFloat(a)
-    const numB = parseFloat(b)
-    return isNaN(numA) || isNaN(numB) ? a.localeCompare(b) : numA - numB
-  })
+    new Set([
+      ...users.map((u) => u.room),
+      ...groups.map((g) => g.room)
+    ].filter((r): r is string => Boolean(r)))
+  ).sort(compareRooms)
+
+  // Standard rooms (M.6) and dynamic rooms for teacher assignment
+  const standardAssignmentRooms = [
+    "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9", "6.10", "6.11", "6.12", "6.13", "6.14", "6.15"
+  ]
+  const allAssignableRooms = Array.from(
+    new Set([
+      ...standardAssignmentRooms,
+      ...availableRooms,
+      ...teachers.flatMap((t) => (t.teacher_assignments || []).map((a) => a.room)),
+      ...selectedAssignRooms
+    ])
+  ).sort(compareRooms)
 
   // Dynamically extract available academic years for users
   const availableUserYears = Array.from(
@@ -2007,32 +2152,92 @@ export default function AdminPage() {
 
             {/* ==================== TAB 3: ROOMS ==================== */}
             {activeTab === "rooms" && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <School className="w-4 h-4 text-brand-500" />
-                  มอบหมายห้องเรียนประจำสำหรับครูผู้สอน
-                </h3>
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <School className="w-5 h-5 text-brand-500" />
+                      มอบหมายห้องเรียนประจำสำหรับครูผู้สอน
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      กำหนดห้องเรียน ม.6 ที่ครูแต่ละท่านรับผิดชอบในการติดตามความคืบหน้าและตรวจงานโครงงาน
+                    </p>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* Year Selector */}
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-slate-800">
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">ปีการศึกษา:</span>
+                      <select
+                        value={currentAssignedYear}
+                        onChange={(e) => {
+                          const newYr = e.target.value
+                          setSelectedAssignmentYear(newYr)
+                          if (assignTeacherId) {
+                            handleSelectTeacherForAssignment(assignTeacherId, newYr)
+                          }
+                        }}
+                        className="bg-transparent text-xs font-bold text-brand-600 dark:text-brand-400 outline-none cursor-pointer"
+                      >
+                        {academicYears.map((y) => (
+                          <option key={y.id} value={y.year}>
+                            {y.year} {y.is_current ? "(ปัจจุบัน)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Clone Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCloneToYear(currentAssignedYear)
+                        const otherYear = academicYears.find((y) => y.year !== currentAssignedYear)?.year || "2568"
+                        setCloneFromYear(otherYear)
+                        setShowCloneModal(true)
+                      }}
+                      className="px-3.5 py-2 bg-brand-50 hover:bg-brand-100 dark:bg-brand-950/60 dark:hover:bg-brand-900/60 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-800 rounded-2xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>คัดลอกห้องจากปีอื่น</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Column: Multi-select Form */}
                   <form
                     onSubmit={handleAssignRoom}
-                    className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-sm h-fit"
+                    className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-5 shadow-sm h-fit"
                   >
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                      เพิ่มการมอบหมายห้องเรียน
-                    </h4>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                          <Users className="w-4 h-4 text-brand-500" />
+                          กำหนดห้องเรียนครู
+                        </h4>
+                        <span className="text-[11px] text-brand-600 dark:text-brand-400 font-semibold block mt-0.5">
+                          ปีการศึกษา: {currentAssignedYear}
+                        </span>
+                      </div>
+                      {assignTeacherId && (
+                        <span className="text-[11px] font-bold text-brand-600 bg-brand-50 dark:bg-brand-950/60 px-2.5 py-1 rounded-full">
+                          เลือกแล้ว {selectedAssignRooms.length} ห้อง
+                        </span>
+                      )}
+                    </div>
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        เลือกอาจารย์ผู้สอน
+                        เลือกอาจารย์ผู้สอน <span className="text-rose-500">*</span>
                       </label>
                       <select
                         required
                         value={assignTeacherId}
-                        onChange={(e) => setAssignTeacherId(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none"
+                        onChange={(e) => handleSelectTeacherForAssignment(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-medium outline-none focus:border-brand-500 transition-colors"
                       >
-                        <option value="">-- เลือกครูผู้สอน --</option>
+                        <option value="">-- กรุณาเลือกครูผู้สอน --</option>
                         {teachers.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.full_name} ({t.email})
@@ -2041,47 +2246,261 @@ export default function AdminPage() {
                       </select>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        ห้องเรียน (เช่น 6.1, 6.2, 6.3)
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={assignRoom}
-                        onChange={(e) => setAssignRoom(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none"
-                      />
-                    </div>
+                    {assignTeacherId ? (
+                      <div className="space-y-3 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            เลือกห้องเรียนประจำ (ปี {currentAssignedYear})
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectAllRooms(allAssignableRooms)}
+                              className="text-[11px] text-brand-600 hover:text-brand-700 dark:text-brand-400 font-semibold px-2 py-0.5 rounded hover:bg-brand-50 dark:hover:bg-brand-950/50 transition-colors cursor-pointer"
+                            >
+                              ทั้งหมด
+                            </button>
+                            <span className="text-slate-300 dark:text-slate-700 text-xs">|</span>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectOddRooms(allAssignableRooms)}
+                              className="text-[11px] text-slate-600 hover:text-slate-800 dark:text-slate-400 font-semibold px-2 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              ห้องคี่
+                            </button>
+                            <span className="text-slate-300 dark:text-slate-700 text-xs">|</span>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectEvenRooms(allAssignableRooms)}
+                              className="text-[11px] text-slate-600 hover:text-slate-800 dark:text-slate-400 font-semibold px-2 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              ห้องคู่
+                            </button>
+                            <span className="text-slate-300 dark:text-slate-700 text-xs">|</span>
+                            <button
+                              type="button"
+                              onClick={handleClearAllRooms}
+                              className="text-[11px] text-rose-500 hover:text-rose-600 font-semibold px-2 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                            >
+                              ล้าง
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Room Chips Grid */}
+                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                          {allAssignableRooms.map((rm) => {
+                            const isSelected = selectedAssignRooms.includes(rm)
+                            return (
+                              <button
+                                key={rm}
+                                type="button"
+                                onClick={() => toggleRoomSelection(rm)}
+                                className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer border ${
+                                  isSelected
+                                    ? "bg-brand-500 text-white border-brand-500 shadow-sm ring-2 ring-brand-500/20 scale-[1.02]"
+                                    : "bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                }`}
+                              >
+                                {isSelected && <Check className="w-3.5 h-3.5 shrink-0 stroke-[3]" />}
+                                <span>{rm}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        {/* Custom Room Input */}
+                        <div className="pt-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="ห้องอื่น ๆ เช่น 6.16"
+                              value={customRoomInput}
+                              onChange={(e) => setCustomRoomInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  handleAddCustomRoom(e)
+                                }
+                              }}
+                              className="flex-1 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none focus:border-brand-500 transition-colors"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddCustomRoom}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              + เพิ่ม
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Summary of Selected Rooms */}
+                        <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1.5">
+                            ห้องที่เลือกทั้งหมด ({selectedAssignRooms.length} ห้อง ในปี {currentAssignedYear}):
+                          </span>
+                          {selectedAssignRooms.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                              {[...selectedAssignRooms].sort(compareRooms).map((rm) => (
+                                <span
+                                  key={rm}
+                                  className="inline-flex items-center gap-1 bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 text-[11px] font-bold px-2 py-0.5 rounded-lg border border-brand-200 dark:border-brand-800"
+                                >
+                                  ม.{rm}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleRoomSelection(rm)}
+                                    className="hover:text-rose-500 transition-colors cursor-pointer"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">ยังไม่ได้เลือกห้อง (ครูจะไม่มีห้องประจำในปีนี้)</span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center">
+                        <p className="text-xs text-slate-400">
+                          👆 เลือกครูผู้สอนเพื่อเริ่มกำหนดห้องเรียนประจำในปี {currentAssignedYear}
+                        </p>
+                      </div>
+                    )}
 
                     <button
                       type="submit"
-                      className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-2 rounded-xl text-xs shadow-md transition-all cursor-pointer"
+                      disabled={!assignTeacherId || isAssigningRooms}
+                      className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
-                      บันทึกการมอบหมาย
+                      {isAssigningRooms ? (
+                        <span>กำลังบันทึก...</span>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>บันทึกการมอบหมาย ({selectedAssignRooms.length} ห้อง ในปี {currentAssignedYear})</span>
+                        </>
+                      )}
                     </button>
                   </form>
 
-                  <div className="md:col-span-2 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-sm">
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                      รายการครูประจำห้องเรียน ม.6
-                    </h4>
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {teachers.map((t) => (
-                        <div key={t.id} className="py-3 flex items-center justify-between">
-                          <div>
-                            <span className="font-bold text-slate-900 dark:text-white text-xs">
-                              {t.full_name}
-                            </span>
-                            <span className="text-[11px] text-slate-400 font-en block">
-                              {t.email}
-                            </span>
-                          </div>
-                          <span className="bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-300 text-xs font-bold px-3 py-1 rounded-xl">
-                            ห้อง ม.{t.room || "ทุกห้อง"}
-                          </span>
-                        </div>
-                      ))}
+                  {/* Right Column: Teacher Cards List */}
+                  <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                          รายการครูประจำห้องเรียน ม.6
+                        </h4>
+                        <span className="text-[11px] text-brand-600 dark:text-brand-400 font-semibold">
+                          ปีการศึกษา: {currentAssignedYear} ({teachers.length} ท่าน)
+                        </span>
+                      </div>
+
+                      {/* Search Filter for Teachers */}
+                      <div className="relative w-full sm:w-48">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="ค้นหาชื่อ / อีเมล / ห้อง"
+                          value={teacherSearchFilter}
+                          onChange={(e) => setTeacherSearchFilter(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none focus:border-brand-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800/80 max-h-[600px] overflow-y-auto pr-1">
+                      {teachers
+                        .filter((t) => {
+                          const q = teacherSearchFilter.toLowerCase().trim()
+                          if (!q) return true
+                          const matchName = t.full_name.toLowerCase().includes(q)
+                          const matchEmail = t.email.toLowerCase().includes(q)
+                          const matchRooms = (t.teacher_assignments || []).some(
+                            (a) =>
+                              (a.academic_year || "2568") === currentAssignedYear &&
+                              a.room.toLowerCase().includes(q)
+                          )
+                          return matchName || matchEmail || matchRooms
+                        })
+                        .map((t) => {
+                          const assignments = [...(t.teacher_assignments || [])]
+                            .filter((a) => (a.academic_year || "2568") === currentAssignedYear)
+                            .sort((a, b) => compareRooms(a.room, b.room))
+                          const isSelected = assignTeacherId === t.id
+
+                          return (
+                            <div
+                              key={t.id}
+                              className={`py-4 transition-all ${
+                                isSelected ? "bg-brand-50/40 dark:bg-brand-950/20 -mx-2 px-2 rounded-2xl" : ""
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-slate-900 dark:text-white text-xs">
+                                      {t.full_name}
+                                    </span>
+                                    {isSelected && (
+                                      <span className="text-[10px] bg-brand-500 text-white font-bold px-2 py-0.2 rounded-full">
+                                        กำลังแก้ไข
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[11px] text-slate-400 font-en block">
+                                    {t.email}
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectTeacherForAssignment(t.id, currentAssignedYear)}
+                                  className="shrink-0 text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/50 px-2.5 py-1 rounded-xl transition-colors cursor-pointer flex items-center gap-1 border border-brand-200 dark:border-brand-800"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  <span>จัดการห้อง</span>
+                                </button>
+                              </div>
+
+                              {/* Badges of Assigned Rooms for currentAssignedYear */}
+                              <div className="mt-2.5">
+                                {assignments.length > 0 ? (
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-1">
+                                      ห้อง ({assignments.length}):
+                                    </span>
+                                    {assignments.map((a) => (
+                                      <span
+                                        key={a.id}
+                                        className="inline-flex items-center gap-1 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 text-xs font-bold px-2.5 py-1 rounded-xl border border-brand-200/80 dark:border-brand-800/80 group"
+                                      >
+                                        ม.{a.room}
+                                        <button
+                                          type="button"
+                                          title={`ลบห้อง ม.${a.room}`}
+                                          onClick={() =>
+                                            handleRemoveTeacherAssignment(a.id, a.room, t.full_name)
+                                          }
+                                          className="text-slate-400 hover:text-rose-500 transition-colors cursor-pointer ml-0.5"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="inline-block text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-0.5 rounded-lg border border-amber-200/60 dark:border-amber-900/60">
+                                    ยังไม่ได้มอบหมายห้องในปี {currentAssignedYear}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
                     </div>
                   </div>
                 </div>
@@ -3733,9 +4152,94 @@ export default function AdminPage() {
                 </form>
               )}
             </Modal>
+
+            {/* Modal: Clone Teacher Room Assignments */}
+            <Modal
+              isOpen={showCloneModal}
+              onClose={() => setShowCloneModal(false)}
+              title="คัดลอกการมอบหมายห้องเรียนข้ามปีการศึกษา"
+              description="คัดลอกรายชื่อห้องประจำของครูผู้สอนทุกคนจากปีการศึกษาต้นทาง มายังปีการศึกษาปลายทาง"
+              icon={Copy}
+              maxWidth="md"
+            >
+              <form onSubmit={handleCloneAssignments} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      คัดลอกจากปีการศึกษา (ต้นทาง) *
+                    </label>
+                    <select
+                      required
+                      value={cloneFromYear}
+                      onChange={(e) => setCloneFromYear(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-medium outline-none"
+                    >
+                      <option value="">-- เลือกปีต้นทาง --</option>
+                      {academicYears.map((y) => (
+                        <option key={y.id} value={y.year}>
+                          {y.year} {y.is_current ? "(ปัจจุบัน)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      ไปยังปีการศึกษา (ปลายทาง) *
+                    </label>
+                    <select
+                      required
+                      value={cloneToYear}
+                      onChange={(e) => setCloneToYear(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-medium outline-none"
+                    >
+                      <option value="">-- เลือกปีปลายทาง --</option>
+                      {academicYears.map((y) => (
+                        <option key={y.id} value={y.year}>
+                          {y.year} {y.is_current ? "(ปัจจุบัน)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-200/60 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 space-y-1">
+                  <p className="font-bold flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5" /> หมายเหตุ:
+                  </p>
+                  <p>
+                    ระบบจะคัดลอกเฉพาะห้องที่ยังไม่ได้มอบหมายในปีปลายทาง และจะไม่ลบข้อมูลเดิมที่มีอยู่แล้ว
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCloneModal(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCloning || !cloneFromYear || !cloneToYear}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    {isCloning ? (
+                      <span>กำลังคัดลอก...</span>
+                    ) : (
+                      <>
+                        <CopyCheck className="w-3.5 h-3.5" />
+                        <span>ยืนยันการคัดลอก</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </Modal>
           </>
-        );
+        )
       }}
     </DashboardLayout>
-  );
+  )
 }

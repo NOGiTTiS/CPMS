@@ -36,10 +36,11 @@ func (User) TableName() string {
 }
 
 type TeacherAssignment struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	TeacherID uuid.UUID `gorm:"type:uuid;not null;index" json:"teacher_id"`
-	Room      string    `gorm:"type:varchar(20);not null" json:"room"`
-	CreatedAt time.Time `gorm:"type:timestamptz;default:CURRENT_TIMESTAMP" json:"created_at"`
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	TeacherID    uuid.UUID `gorm:"type:uuid;not null;index" json:"teacher_id"`
+	Room         string    `gorm:"type:varchar(20);not null" json:"room"`
+	AcademicYear string    `gorm:"type:varchar(10);not null;default:'2568';index" json:"academic_year"`
+	CreatedAt    time.Time `gorm:"type:timestamptz;default:CURRENT_TIMESTAMP" json:"created_at"`
 
 	Teacher *User `gorm:"foreignKey:TeacherID" json:"teacher,omitempty"`
 }
