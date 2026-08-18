@@ -32,9 +32,9 @@ COPY --from=builder /build/.env.example /app/.env.example
 # Create upload directory
 RUN mkdir -p /app/uploads
 
-EXPOSE 8009
+EXPOSE 8080
 
-ENV PORT=8009 \
+ENV PORT=8080 \
     ENVIRONMENT=production
 
 CMD ["/app/server"]

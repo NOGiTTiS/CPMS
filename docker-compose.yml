@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cpms-backend
+    restart: always
+    networks:
+      - tunorth-net
+    volumes:
+      - ../../data/uploads/cpms:/var/tunorth_data/uploads
+    environment:
+      - ENVIRONMENT=production
+      - PORT=8080
+      - DB_HOST=${DB_HOST:-cpms-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-hVLcvCI17kc.r6XZ}
+      - DB_NAME=${DB_NAME:-tunorth_cpms_db}
+      - DB_SSLMODE=disable
+      - JWT_SECRET=${JWT_SECRET:-tunorth-cpms-jwt-access-secret-2568}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-tunorth-cpms-jwt-refresh-secret-2568}
+      - JWT_ACCESS_EXPIRY_HOURS=2
+      - JWT_REFRESH_EXPIRY_DAYS=7
+      - UPLOAD_DIR=/var/tunorth_data/uploads
+      - MAX_UPLOAD_SIZE_MB=20
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cpms-frontend
+    restart: always
+    networks:
+      - tunorth-net
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://cpms.tn.ac.th}
+    depends_on:
+      - backend
+
+networks:
+  tunorth-net:
+    external: true

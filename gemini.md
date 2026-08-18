@@ -64,7 +64,8 @@ D:\TUNorth
     ├── gemini.md                     # 🧠 Project Brain & Memory (This file)
     │
     ├── docs/                         # Specification & Architecture
-    │   └── spec.md                   # System Requirements Specification & Phase Checklists
+    │   ├── spec.md                   # System Requirements Specification & Phase Checklists
+    │   └── cpms_standalone_deploy_plan.md # 🚀 Standalone Deploy Guide for Ubuntu Server
     │
     ├── frontend/                     # Next.js 16 (App Router) Frontend
     │   ├── .prettierrc               # Prettier config with semi: false
@@ -152,6 +153,9 @@ D:\TUNorth
   - [x] ทดสอบ Build Backend (`go build -o server.exe ./cmd/server`) ผ่านสมบูรณ์ (0 Errors)
   - [x] ทดสอบ Build Frontend (`bun run build`) ผ่านสมบูรณ์ (0 Errors)
   - [x] ทดสอบ End-to-End User Flow ครบทั้ง 3 บทบาท
+  - [x] จัดเตรียมไฟล์ Containerization & Production Configuration (`docker-compose.yml`, `.env.example`, `.env`)
+  - [x] บูรณาการเข้ากับ Infrastructure กลางของโรงเรียน (`scripts/setup.sh`, `scripts/restore_db.sh`, `DEPLOYMENT_GUIDE.md`)
+  - [x] จัดทำคู่มือขั้นตอนการ Deploy เฉพาะระบบ CPMS ใน [`docs/cpms_standalone_deploy_plan.md`](docs/cpms_standalone_deploy_plan.md)
   - [x] ตั้งค่า `.gitignore` เพื่อยกเว้น `old_system/`, build outputs, binaries, และ `.env`
   - [x] Push ซอร์สโค้ดและเอกสารทั้งหมดขึ้น GitHub Repository (`https://github.com/NOGiTTiS/CPMS.git`)
   - [x] จัดทำเอกสารสรุปผลและคู่มือการใช้งาน (`docs/spec.md`, `gemini.md`, `HANDOVER_SUMMARY.md`, `walkthrough.md`)
@@ -162,7 +166,7 @@ D:\TUNorth
 
 ```powershell
 # =============================================================
-# โหมดพัฒนาภายในเครื่อง (Local Development Mode)
+# โหมดพัฒนาภายในเครื่อง (Local Development Mode - Windows)
 # =============================================================
 # 1. รัน Backend Local Dev (Go with Fiber)
 cd D:\TUNorth\apps\cpms\backend
@@ -173,6 +177,22 @@ cd D:\TUNorth\apps\cpms\backend
 cd D:\TUNorth\apps\cpms\frontend
 bun run dev               # รัน Dev Server (http://localhost:3000)
 bun run build             # ตรวจสอบการ Build สำหรับ Production
+
+# =============================================================
+# โหมดการ Deploy บน Ubuntu Server 24.04 LTS (Production)
+# =============================================================
+# 1. Deploy เฉพาะระบบ CPMS ครั้งแรก
+mkdir -p ~/TUNorth/data/postgres/cpms ~/TUNorth/data/uploads/cpms/branding
+chmod -R 777 ~/TUNorth/data/uploads/cpms
+cd ~/TUNorth/infra && docker compose up -d cpms-db
+docker exec -i cpms-db psql -U postgres -d tunorth_cpms_db < ~/TUNorth/tunorth-cpms_db_backup_20260727.sql
+cd ~/TUNorth/infra && docker compose restart nginx
+cd ~/TUNorth/apps/cpms && docker compose up -d --build
+
+# 2. Re-deploy เฉพาะ Frontend หรือ Backend ของ CPMS
+cd ~/TUNorth/apps/cpms
+docker compose up -d --build frontend
+docker compose up -d --build backend
 
 # =============================================================
 # Git & GitHub Repository

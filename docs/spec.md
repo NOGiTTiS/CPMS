@@ -389,7 +389,15 @@ erDiagram
 - [x] ทดสอบ Build Frontend (`bun run build`) สำเร็จเรียบร้อย (0 TypeScript errors, 0 ESLint errors)
 - [x] ทดสอบ Data Migration นำเข้าข้อมูลเดิมจาก `backup_cpms_db.sql` และตรวจสอบความถูกต้องของข้อมูล
 - [x] ทดสอบ User Flow แบบ End-to-End ครบทั้ง 3 บทบาท (Admin, Teacher, Student)
+- [x] จัดเตรียมไฟล์ Containerization & Deployment:
+  - [x] สร้าง `apps/cpms/docker-compose.yml` เชื่อมโยง `cpms-backend` (Port 8080) และ `cpms-frontend` (Port 3000) เข้า `tunorth-net`
+  - [x] สร้าง `apps/cpms/.env.example` และ `apps/cpms/.env` สำหรับ Production Deployment
+  - [x] อัปเดต `scripts/setup.sh` และ `scripts/restore_db.sh` รองรับ `cpms-db`
+  - [x] วางไฟล์สำรองฐานข้อมูล `tunorth-cpms_db_backup_20260727.sql` ไว้ที่รูท `D:\TUNorth`
+  - [x] จัดทำคู่มือ Deploy เฉพาะระบบ CPMS ใน [`docs/cpms_standalone_deploy_plan.md`](docs/cpms_standalone_deploy_plan.md)
+  - [x] ปรับปรุงคู่มือกลางของเซิร์ฟเวอร์ [`DEPLOYMENT_GUIDE.md`](../../DEPLOYMENT_GUIDE.md)
 - [x] ตั้งค่า `.gitignore` ยกเว้น `old_system/`, build outputs, binaries และ environment files
 - [x] Push ซอร์สโค้ดและเอกสารทั้งหมดขึ้น GitHub Repository (`https://github.com/NOGiTTiS/CPMS.git`)
 - [x] จัดทำเอกสารสรุปผลการทำงาน (Walkthrough Document, Handover Summary) และคู่มือสเปกระบบฉบับสมบูรณ์
+
 
