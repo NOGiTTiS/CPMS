@@ -1,13 +1,13 @@
-"use client";
+"use client"
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuthStore } from "@/store/useAuthStore";
-import { api } from "@/lib/api";
-import { LoginResponse } from "@/types";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { toast } from "sonner";
-import { LogIn, GraduationCap, ShieldCheck, Lock, User as UserIcon } from "lucide-react";
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useAuthStore } from "@/store/useAuthStore"
+import { api } from "@/lib/api"
+import { LoginResponse } from "@/types"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { toast } from "sonner"
+import { LogIn, GraduationCap, ShieldCheck, Lock, User as UserIcon } from "lucide-react"
 
 function LoginForm() {
   const router = useRouter()
@@ -105,7 +105,7 @@ function LoginForm() {
         {siteLogo ? (
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white dark:bg-slate-950 mb-1 border border-slate-200 dark:border-slate-800 p-1.5 shadow-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={api.getFileUrl(siteLogo)} alt="Logo" className="w-full h-full object-contain" />
+            <img src={api.getFileUrl(siteLogo)} alt="Site Logo" className="w-full h-full object-contain" />
           </div>
         ) : (
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 mb-1 border border-brand-100 dark:border-brand-900/50">
@@ -115,7 +115,7 @@ function LoginForm() {
         <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
           {systemName}
         </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
           {instituteName}
         </p>
         <p className="text-[11px] text-brand-600 dark:text-brand-400 font-medium">
@@ -125,11 +125,13 @@ function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <label htmlFor="login-identifier" className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
             <UserIcon className="w-3.5 h-3.5 text-brand-500" />
             รหัสนักเรียน หรือ อีเมล (Email / Student ID)
           </label>
           <input
+            id="login-identifier"
+            name="identifier"
             type="text"
             required
             autoFocus
@@ -142,12 +144,14 @@ function LoginForm() {
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <label htmlFor="login-password" className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-brand-500" />
               รหัสผ่าน (Password)
             </label>
           </div>
           <input
+            id="login-password"
+            name="password"
             type="password"
             required
             value={password}
@@ -177,8 +181,8 @@ function LoginForm() {
       </form>
 
       <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
-        <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           ความปลอดภัยระดับสถาบันการศึกษา (JWT + BCrypt)
         </p>
       </div>
@@ -223,7 +227,7 @@ export default function LoginPage() {
             <h1 className="font-bold text-slate-900 dark:text-white text-base leading-tight">
               {systemName}
             </h1>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-en">
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-en">
               {instituteName}
             </p>
           </div>
@@ -235,7 +239,7 @@ export default function LoginPage() {
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="max-w-md w-full space-y-6">
           <Suspense fallback={
-            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl text-center text-xs text-slate-400">
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl text-center text-xs text-slate-500 dark:text-slate-400">
               กำลังโหลดฟอร์มเข้าสู่ระบบ...
             </div>
           }>
@@ -245,7 +249,7 @@ export default function LoginPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 text-center text-xs text-slate-400 dark:text-slate-600">
+      <footer className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
         {siteCopyright}
       </footer>
     </div>

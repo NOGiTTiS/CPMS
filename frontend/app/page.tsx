@@ -1,40 +1,40 @@
-"use client";
+"use client"
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuthStore } from "@/store/useAuthStore"
 
 export default function RootPage() {
-  const router = useRouter();
-  const { user, token, isInitialized, initAuth } = useAuthStore();
+  const router = useRouter()
+  const { user, token, isInitialized, initAuth } = useAuthStore()
 
   useEffect(() => {
-    initAuth();
-  }, [initAuth]);
+    initAuth()
+  }, [initAuth])
 
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized) return
 
     if (!token || !user) {
-      router.replace("/login");
-      return;
+      router.replace("/login")
+      return
     }
 
     if (user.role === "ADMIN") {
-      router.replace("/admin");
+      router.replace("/admin")
     } else if (user.role === "TEACHER") {
-      router.replace("/teacher");
+      router.replace("/teacher")
     } else {
-      router.replace("/student");
+      router.replace("/student")
     }
-  }, [isInitialized, token, user, router]);
+  }, [isInitialized, token, user, router])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 font-sans">กำลังนำทางไปยังระบบ...</p>
+        <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" role="status" aria-label="กำลังโหลด"></div>
+        <p className="text-xs text-slate-600 dark:text-slate-400 font-sans">กำลังนำทางไปยังระบบ...</p>
       </div>
-    </div>
-  );
+    </main>
+  )
 }

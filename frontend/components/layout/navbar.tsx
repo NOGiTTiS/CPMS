@@ -182,7 +182,7 @@ export function Navbar({ onToggleSidebar, isSidebarOpen }: NavbarProps) {
 
                   <button
                     onClick={() => logout()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 text-xs font-medium transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 text-xs font-semibold transition-colors cursor-pointer"
                     title="ออกจากระบบ"
                   >
                     <LogOut className="w-3.5 h-3.5" />

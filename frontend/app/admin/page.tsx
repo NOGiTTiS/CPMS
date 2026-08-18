@@ -1587,6 +1587,7 @@ export default function AdminPage() {
                     {/* Role Filter */}
                     <div>
                       <select
+                        aria-label="กรองตามบทบาท"
                         value={userRoleFilter}
                         onChange={(e) => {
                           setUserRoleFilter(e.target.value)
@@ -1604,6 +1605,7 @@ export default function AdminPage() {
                     {/* Room Filter */}
                     <div>
                       <select
+                        aria-label="กรองตามห้องเรียน"
                         value={userRoomFilter}
                         onChange={(e) => {
                           setUserRoomFilter(e.target.value)
@@ -1623,6 +1625,7 @@ export default function AdminPage() {
                     {/* Academic Year Filter */}
                     <div>
                       <select
+                        aria-label="กรองตามปีการศึกษา"
                         value={userYearFilter}
                         onChange={(e) => {
                           setUserYearFilter(e.target.value)
@@ -1942,6 +1945,7 @@ export default function AdminPage() {
                     {/* Room Filter */}
                     <div>
                       <select
+                        aria-label="กรองโครงงานตามห้องเรียน"
                         value={groupRoomFilter}
                         onChange={(e) => {
                           setGroupRoomFilter(e.target.value);
@@ -1961,6 +1965,7 @@ export default function AdminPage() {
                     {/* Academic Year Filter */}
                     <div>
                       <select
+                        aria-label="กรองโครงงานตามปีการศึกษา"
                         value={groupYearFilter}
                         onChange={(e) => {
                           setGroupYearFilter(e.target.value);

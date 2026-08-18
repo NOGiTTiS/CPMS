@@ -472,6 +472,7 @@ export default function TeacherPage() {
                       <CalendarRange className="w-3.5 h-3.5 text-brand-500" /> ปีการศึกษา:
                     </span>
                     <select
+                      aria-label="เลือกปีการศึกษา"
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(e.target.value)}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-900 outline-none cursor-pointer"

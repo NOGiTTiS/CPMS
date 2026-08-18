@@ -1,0 +1,72 @@
+[
+  {
+    "name": "home",
+    "label": "Landing / Home Page",
+    "path": "/",
+    "performance": 100,
+    "accessibility": 100,
+    "bestPractices": 100,
+    "seo": 100,
+    "fcp": "0.2 s",
+    "lcp": "0.6 s",
+    "cls": "0.014",
+    "tbt": "0 ms",
+    "htmlReport": "D:\\TUNorth\\apps\\cpms\\frontend\\reports\\lighthouse\\home-report.html"
+  },
+  {
+    "name": "login",
+    "label": "Login Page",
+    "path": "/login",
+    "performance": 100,
+    "accessibility": 100,
+    "bestPractices": 100,
+    "seo": 100,
+    "fcp": "0.2 s",
+    "lcp": "0.3 s",
+    "cls": "0.015",
+    "tbt": "0 ms",
+    "htmlReport": "D:\\TUNorth\\apps\\cpms\\frontend\\reports\\lighthouse\\login-report.html"
+  },
+  {
+    "name": "student",
+    "label": "Student Portal",
+    "path": "/student",
+    "performance": 99,
+    "accessibility": 96,
+    "bestPractices": 100,
+    "seo": 100,
+    "fcp": "0.2 s",
+    "lcp": "0.7 s",
+    "cls": "0.074",
+    "tbt": "0 ms",
+    "htmlReport": "D:\\TUNorth\\apps\\cpms\\frontend\\reports\\lighthouse\\student-report.html"
+  },
+  {
+    "name": "teacher",
+    "label": "Teacher Portal",
+    "path": "/teacher",
+    "performance": 91,
+    "accessibility": 96,
+    "bestPractices": 100,
+    "seo": 100,
+    "fcp": "0.2 s",
+    "lcp": "2.0 s",
+    "cls": "0.026",
+    "tbt": "0 ms",
+    "htmlReport": "D:\\TUNorth\\apps\\cpms\\frontend\\reports\\lighthouse\\teacher-report.html"
+  },
+  {
+    "name": "admin",
+    "label": "Admin Control Panel",
+    "path": "/admin",
+    "performance": 92,
+    "accessibility": 96,
+    "bestPractices": 100,
+    "seo": 100,
+    "fcp": "0.2 s",
+    "lcp": "1.4 s",
+    "cls": "0.054",
+    "tbt": "160 ms",
+    "htmlReport": "D:\\TUNorth\\apps\\cpms\\frontend\\reports\\lighthouse\\admin-report.html"
+  }
+]
