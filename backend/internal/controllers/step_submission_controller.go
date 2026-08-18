@@ -356,6 +356,18 @@ func (ssc *StepSubmissionController) GetGroupSubmissions(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to load submissions"})
 	}
 
+	userRole, _ := c.Locals("userRole").(string)
+	if userRole == "STUDENT" {
+		var showScoresSetting models.SystemSetting
+		if err := ssc.db.Where("key = ?", "show_scores_to_students").First(&showScoresSetting).Error; err == nil {
+			if showScoresSetting.Value == "false" || showScoresSetting.Value == "0" {
+				for i := range submissions {
+					submissions[i].Score = nil
+				}
+			}
+		}
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    submissions,

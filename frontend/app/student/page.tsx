@@ -50,18 +50,24 @@ import {
   Search,
   Filter,
   UserCheck,
-  RefreshCw
-} from "lucide-react";
+  RefreshCw,
+  Lock,
+  EyeOff,
+  ListOrdered,
+  Shuffle
+} from "lucide-react"
 
 export default function StudentPage() {
-  const { user } = useAuthStore();
-  const [group, setGroup] = useState<ProjectGroup | null>(null);
-  const [steps, setSteps] = useState<ProjectStep[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const { user } = useAuthStore()
+  const [group, setGroup] = useState<ProjectGroup | null>(null)
+  const [steps, setSteps] = useState<ProjectStep[]>([])
+  const [submissions, setSubmissions] = useState<Submission[]>([])
   const [slots, setSlots] = useState<PresentationSlot[]>([])
   const [rubricCriteria, setRubricCriteria] = useState<PresentationCriteria[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"overview" | "steps" | "defense">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "steps" | "defense" | "scores">("overview")
+  const [submissionMode, setSubmissionMode] = useState<"sequential" | "open">("sequential")
+  const [showScoresToStudents, setShowScoresToStudents] = useState<boolean>(true)
 
   // Week navigation state for Student Timetable
   const [slotWeekStart, setSlotWeekStart] = useState<Date>(() => {
@@ -140,12 +146,23 @@ export default function StudentPage() {
         setGroup(null)
       }
 
-      // Also get public settings to ensure maxMembersLimit is populated
+      // Also get public settings to ensure maxMembersLimit, submissionMode and showScoresToStudents are populated
       try {
         const setRes = await api.get<{ data?: Record<string, string> }>("/settings/public")
-        const maxMem = parseInt(setRes?.data?.["max_members_per_group"] || "", 10)
+        const sData = setRes?.data || {}
+        const maxMem = parseInt(sData["max_members_per_group"] || "", 10)
         if (!isNaN(maxMem) && maxMem > 0) {
           setMaxMembersLimit(maxMem)
+        }
+        if (sData["submission_mode"] === "open") {
+          setSubmissionMode("open")
+        } else {
+          setSubmissionMode("sequential")
+        }
+        if (sData["show_scores_to_students"] === "false" || sData["show_scores_to_students"] === "0") {
+          setShowScoresToStudents(false)
+        } else {
+          setShowScoresToStudents(true)
         }
       } catch {
         // Fallback
@@ -939,16 +956,29 @@ export default function StudentPage() {
 
                 <div className="space-y-4">
                   {steps.map((step, idx) => {
-                    const sub = getStepSubmission(step.id);
+                    const sub = getStepSubmission(step.id)
+                    const sortedSteps = [...steps].sort((a, b) => a.step_order - b.step_order)
+                    const currentStepIndex = sortedSteps.findIndex((s) => s.id === step.id)
+                    const prevStep = currentStepIndex > 0 ? sortedSteps[currentStepIndex - 1] : null
+                    const prevSub = prevStep ? getStepSubmission(prevStep.id) : null
+                    const isLockedBySequence = submissionMode === "sequential" && prevStep !== null && prevSub?.status !== "APPROVED"
 
                     return (
                       <div
                         key={step.id}
-                        className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm hover:border-brand-500/30 transition-all space-y-4"
+                        className={`bg-white dark:bg-slate-900 border rounded-3xl p-5 sm:p-6 shadow-sm transition-all space-y-4 ${
+                          isLockedBySequence
+                            ? "border-slate-200/60 dark:border-slate-800/60 opacity-80"
+                            : "border-slate-200/80 dark:border-slate-800 hover:border-brand-500/30"
+                        }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-start sm:items-center gap-3">
-                            <span className="w-8 h-8 rounded-xl bg-brand-500 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                            <span className={`w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center shrink-0 ${
+                              isLockedBySequence
+                                ? "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                                : "bg-brand-500 text-white shadow-md shadow-brand-500/20"
+                            }`}>
                               {idx + 1}
                             </span>
                             <div>
@@ -956,9 +986,15 @@ export default function StudentPage() {
                                 <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                                   {step.step_name}
                                 </h3>
-                                <span className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2 py-0.5 rounded-md">
-                                  คะแนนเต็ม: {step.max_score} คะแนน
-                                </span>
+                                {showScoresToStudents ? (
+                                  <span className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2 py-0.5 rounded-md">
+                                    คะแนนเต็ม: {step.max_score} คะแนน
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                                    ขั้นตอนที่ {idx + 1}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                 {step.description || "ไม่มีคำอธิบายเพิ่มเติม"}
@@ -1011,7 +1047,7 @@ export default function StudentPage() {
                                 ส่งงานรอบที่ {sub.revision_number} · เมื่อ {formatDate(sub.submitted_at)}
                               </span>
                               <div className="flex items-center gap-3">
-                                {sub.score !== null && sub.score !== undefined && (
+                                {showScoresToStudents && sub.score !== null && sub.score !== undefined && (
                                   <span className="font-bold text-brand-600 dark:text-brand-400">
                                     คะแนนที่ได้: {sub.score} / {step.max_score}
                                   </span>
@@ -1045,22 +1081,29 @@ export default function StudentPage() {
                         {/* Action Button */}
                         {group && (
                           <div className="flex justify-end pt-1">
-                            <button
-                              onClick={() => {
-                                setShowSubmitWork(step);
-                                setSubmissionType("file");
-                                setSelectedFile(null);
-                                setSubmissionLink("");
-                              }}
-                              className="bg-brand-500 hover:bg-brand-600 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-brand-500/20"
-                            >
-                              <UploadCloud className="w-4 h-4" />
-                              {sub ? "ส่งงานแก้ไขใหม่ (Resubmit)" : "ส่งงานในขั้นตอนนี้"}
-                            </button>
+                            {isLockedBySequence ? (
+                              <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-4 py-2 rounded-xl border border-amber-200/80 dark:border-amber-900/60 font-medium shadow-xs">
+                                <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span>ต้องผ่านการอนุมัติขั้นตอน &quot;{prevStep?.step_name}&quot; ก่อนส่งงานขั้นตอนนี้</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setShowSubmitWork(step)
+                                  setSubmissionType("file")
+                                  setSelectedFile(null)
+                                  setSubmissionLink("")
+                                }}
+                                className="bg-brand-500 hover:bg-brand-600 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-brand-500/20"
+                              >
+                                <UploadCloud className="w-4 h-4" />
+                                {sub ? "ส่งงานแก้ไขใหม่ (Resubmit)" : "ส่งงานในขั้นตอนนี้"}
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
-                    );
+                    )
                   })}
                 </div>
               </div>
@@ -1333,7 +1376,17 @@ export default function StudentPage() {
                   </p>
                 </div>
 
-                {(!group?.booking?.scores || group.booking.scores.length === 0) ? (
+                {!showScoresToStudents ? (
+                  <div className="bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/50 rounded-3xl p-10 text-center space-y-3 shadow-xs">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center shadow-xs">
+                      <EyeOff className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">ระบบอยู่ระหว่างการประมวลผลคะแนน</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                      ผู้ดูแลระบบปิดการแสดงคะแนนแก่นักเรียนชั่วคราว เพื่อรอการสรุปผลและประกาศผลการประเมินอย่างเป็นทางการจากคณะกรรมการ
+                    </p>
+                  </div>
+                ) : (!group?.booking?.scores || group.booking.scores.length === 0) ? (
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center space-y-3">
                     <div className="w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-950 text-brand-500 mx-auto flex items-center justify-center">
                       <Sparkles className="w-6 h-6" />

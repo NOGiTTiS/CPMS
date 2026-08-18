@@ -43,15 +43,15 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, onCloseMobile }: Side
 
     if (user.role === "ADMIN") {
       return [
-        { id: "overview", label: "ภาพรวมระบบ (Overview)", icon: LayoutDashboard },
-        { id: "users", label: "จัดการผู้ใช้ & นำเข้า CSV", icon: Users },
-        { id: "groups", label: "จัดการกลุ่มโครงงาน (Groups)", icon: FolderKanban },
+        { id: "overview", label: "ภาพรวมระบบ", icon: LayoutDashboard },
         { id: "academic-years", label: "จัดการปีการศึกษา", icon: CalendarRange },
+        { id: "users", label: "จัดการผู้ใช้", icon: Users },
         { id: "rooms", label: "มอบหมายห้องเรียนครู", icon: School },
+        { id: "groups", label: "จัดการกลุ่มโครงงาน", icon: FolderKanban },
         { id: "steps", label: "กำหนดขั้นตอนส่งงาน", icon: Layers },
-        { id: "defense", label: "รอบนำเสนอ & เกณฑ์ Rubric", icon: CalendarCheck },
-        { id: "settings", label: "ตั้งค่าระบบ & Telegram", icon: Sliders },
-        { id: "logs", label: "บันทึกกิจกรรม (Audit Logs)", icon: History },
+        { id: "defense", label: "รอบนำเสนอ & เกณฑ์", icon: CalendarCheck },
+        { id: "settings", label: "ตั้งค่าระบบ", icon: Sliders },
+        { id: "logs", label: "บันทึกกิจกรรม", icon: History },
       ];
     }
 

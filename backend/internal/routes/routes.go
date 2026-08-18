@@ -49,15 +49,17 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	authGroup.Post("/change-password", authCtrl.ChangePassword)
 
 	// ----------------------------------------------------
-	// 2. FILE DOWNLOAD / UPLOAD
+	// 2. FILE DOWNLOAD / UPLOAD (Public download for assets/templates)
 	// ----------------------------------------------------
 	filesGroup := api.Group("/files")
-	filesGroup.Use(middleware.AuthRequired(cfg))
 	filesGroup.Get("/download", stepSubmissionCtrl.DownloadFile)
 
 	// ----------------------------------------------------
-	// 3. ANNOUNCEMENTS & ACADEMIC YEARS
+	// 3. ANNOUNCEMENTS, ACADEMIC YEARS & SETTINGS
 	// ----------------------------------------------------
+	settingsGroup := api.Group("/settings")
+	settingsGroup.Get("/public", adminCtrl.GetPublicSettings)
+
 	announcementGroup := api.Group("/announcements")
 	announcementGroup.Use(middleware.AuthRequired(cfg))
 	announcementGroup.Get("/", announcementCtrl.ListAnnouncements)
@@ -65,10 +67,6 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	academicYearsGroup := api.Group("/academic-years")
 	academicYearsGroup.Use(middleware.AuthRequired(cfg))
 	academicYearsGroup.Get("/active", adminCtrl.ListActiveAcademicYears)
-
-	settingsGroup := api.Group("/settings")
-	settingsGroup.Use(middleware.AuthRequired(cfg))
-	settingsGroup.Get("/public", adminCtrl.GetPublicSettings)
 
 	// ----------------------------------------------------
 	// 4. PROJECT GROUPS
@@ -156,6 +154,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	adminGroup.Delete("/academic-years/:id", adminCtrl.DeleteAcademicYear)
 	adminGroup.Get("/settings", adminCtrl.GetSettings)
 	adminGroup.Put("/settings", adminCtrl.UpdateSettings)
+	adminGroup.Post("/settings/upload-image", adminCtrl.UploadSettingImage)
 	adminGroup.Post("/settings/test-telegram", adminCtrl.TestTelegram)
 	adminGroup.Get("/logs", adminCtrl.ListActivityLogs)
 	adminGroup.Post("/announcements", announcementCtrl.CreateAnnouncement)

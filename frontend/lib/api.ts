@@ -152,16 +152,28 @@ class ApiClient {
   }
 
   getDownloadUrl(filePath: string): string {
-    const token = typeof window !== "undefined" ? localStorage.getItem("cpms_token") || "" : "";
-    return `${API_BASE_URL}/files/download?path=${encodeURIComponent(filePath)}&token=${encodeURIComponent(token)}`;
+    const token = typeof window !== "undefined" ? localStorage.getItem("cpms_token") || "" : ""
+    return `${API_BASE_URL}/files/download?path=${encodeURIComponent(filePath)}&token=${encodeURIComponent(token)}`
+  }
+
+  getFileUrl(pathOrUrl?: string): string {
+    if (!pathOrUrl) return ""
+    if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://") || pathOrUrl.startsWith("data:")) {
+      return pathOrUrl
+    }
+    const cleanPath = pathOrUrl.startsWith("/api/") ? pathOrUrl.substring(4) : pathOrUrl
+    if (cleanPath.startsWith("/")) {
+      return `${API_BASE_URL}${cleanPath}`
+    }
+    return `${API_BASE_URL}/files/download?path=${encodeURIComponent(pathOrUrl)}`
   }
 
   getExportUrl(endpoint: string): string {
-    const token = typeof window !== "undefined" ? localStorage.getItem("cpms_token") || "" : "";
-    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    const separator = cleanEndpoint.includes("?") ? "&" : "?";
-    return `${API_BASE_URL}${cleanEndpoint}${separator}token=${encodeURIComponent(token)}`;
+    const token = typeof window !== "undefined" ? localStorage.getItem("cpms_token") || "" : ""
+    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+    const separator = cleanEndpoint.includes("?") ? "&" : "?"
+    return `${API_BASE_URL}${cleanEndpoint}${separator}token=${encodeURIComponent(token)}`
   }
 }
 
-export const api = new ApiClient();
+export const api = new ApiClient()

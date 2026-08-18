@@ -194,10 +194,28 @@ func (gc *GroupController) GetMyGroup(c *fiber.Ctx) error {
 		}
 	}
 
+	var showScoresSetting models.SystemSetting
+	showScores := true
+	if err := gc.db.Where("key = ?", "show_scores_to_students").First(&showScoresSetting).Error; err == nil {
+		if showScoresSetting.Value == "false" || showScoresSetting.Value == "0" {
+			showScores = false
+		}
+	}
+
+	if !showScores {
+		for i := range group.Submissions {
+			group.Submissions[i].Score = nil
+		}
+		if group.Booking != nil {
+			group.Booking.Scores = nil
+		}
+	}
+
 	return c.JSON(fiber.Map{
 		"success":     true,
 		"is_leader":   member.IsLeader,
 		"max_members": maxMembers,
+		"show_scores": showScores,
 		"data":        group,
 	})
 }

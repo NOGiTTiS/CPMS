@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/csv"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -878,6 +880,7 @@ func (ac *AdminController) GetPublicSettings(c *fiber.Ctx) error {
 		"site_favicon":            true,
 		"site_copyright":          true,
 		"show_scores_to_students": true,
+		"telegram_bot_enabled":    true,
 	}
 
 	settingsMap := make(map[string]string)
@@ -887,9 +890,75 @@ func (ac *AdminController) GetPublicSettings(c *fiber.Ctx) error {
 		}
 	}
 
+	// Set defaults if not present
+	if _, ok := settingsMap["submission_mode"]; !ok {
+		settingsMap["submission_mode"] = "sequential"
+	}
+	if _, ok := settingsMap["show_scores_to_students"]; !ok {
+		settingsMap["show_scores_to_students"] = "true"
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    settingsMap,
+	})
+}
+
+// Upload Logo / Favicon (Admin only)
+func (ac *AdminController) UploadSettingImage(c *fiber.Ctx) error {
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Image file is required"})
+	}
+
+	// Validate file size <= 5MB
+	if file.Size > 5*1024*1024 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "File size exceeds limit (5MB)"})
+	}
+
+	// Validate extension
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := map[string]bool{
+		".png":  true,
+		".jpg":  true,
+		".jpeg": true,
+		".svg":  true,
+		".webp": true,
+		".ico":  true,
+		".gif":  true,
+	}
+	if !allowedExts[ext] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid file type. Allowed: PNG, JPG, JPEG, SVG, WEBP, ICO, GIF"})
+	}
+
+	imageType := strings.TrimSpace(c.FormValue("type")) // "logo" or "favicon"
+	if imageType == "" {
+		imageType = "branding"
+	}
+
+	brandingDir := filepath.Join(ac.cfg.UploadDir, "branding")
+	if err := os.MkdirAll(brandingDir, os.ModePerm); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to create upload directory"})
+	}
+
+	cleanFileName := fmt.Sprintf("%s_%d%s", imageType, time.Now().UnixNano(), ext)
+	targetPath := filepath.Join(brandingDir, cleanFileName)
+
+	if err := c.SaveFile(file, targetPath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to save uploaded image"})
+	}
+
+	relPath := filepath.ToSlash(filepath.Join("branding", cleanFileName))
+	fullURL := "/api/files/download?path=" + relPath
+
+	adminID, _ := c.Locals("userID").(uuid.UUID)
+	services.LogActivity(ac.db, &adminID, "ADMIN", "UPLOAD_BRANDING", fmt.Sprintf("Uploaded %s image: %s", imageType, cleanFileName), c.IP())
+
+	return c.JSON(fiber.Map{
+		"success":   true,
+		"file_path": relPath,
+		"url":       fullURL,
+		"message":   "อัปโหลดรูปภาพสำเร็จ",
 	})
 }
 

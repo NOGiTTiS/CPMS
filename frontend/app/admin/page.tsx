@@ -62,7 +62,17 @@ import {
   CopyCheck,
   Calendar,
   Clock,
-  MapPin
+  MapPin,
+  Globe,
+  Image as ImageIcon,
+  ListOrdered,
+  Shuffle,
+  Bell,
+  BellOff,
+  Info,
+  Save,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react"
 
 export default function AdminPage() {
@@ -229,8 +239,12 @@ export default function AdminPage() {
   const [critOrder, setCritOrder] = useState<number>(1);
   const [critIsActive, setCritIsActive] = useState<boolean>(true);
 
-  // Telegram test state
-  const [isTestingTelegram, setIsTestingTelegram] = useState(false);
+  // System Settings states
+  const [isTestingTelegram, setIsTestingTelegram] = useState(false)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [isUploadingFavicon, setIsUploadingFavicon] = useState(false)
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [showBotToken, setShowBotToken] = useState(false)
 
   const fetchAllAdminData = useCallback(async () => {
     try {
@@ -1212,33 +1226,94 @@ export default function AdminPage() {
   };
 
   // 10. Update System Settings
-  const handleUpdateSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    setIsSavingSettings(true)
     try {
-      await api.put("/admin/settings", settings);
-      toast.success("บันทึกการตั้งค่าระบบเรียบร้อย");
+      const payload = {
+        ...settings,
+        system_name: settings.system_name || "TU-North CPMS",
+        institute_name: settings.institute_name || "โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ",
+        system_description: settings.system_description || "ระบบจัดการโครงงานคอมพิวเตอร์ โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ",
+        max_members_per_group: settings.max_members_per_group || "3",
+        site_copyright: settings.site_copyright || "© 2026 TU-North Computer Department",
+        submission_mode: settings.submission_mode || "sequential",
+        show_scores_to_students: settings.show_scores_to_students !== undefined ? settings.show_scores_to_students : "true",
+        telegram_bot_enabled: settings.telegram_bot_enabled !== undefined ? settings.telegram_bot_enabled : "false",
+        telegram_bot_token: settings.telegram_bot_token || "",
+        telegram_chat_id: settings.telegram_chat_id || ""
+      }
+      await api.put("/admin/settings", payload)
+      setSettings(payload)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("branding-updated"))
+      }
+      toast.success("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว")
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "บันทึกการตั้งค่าไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "บันทึกการตั้งค่าไม่สำเร็จ"
+      toast.error(errorMsg)
+    } finally {
+      setIsSavingSettings(false)
     }
-  };
+  }
+
+  // 10.1 Upload Branding Logo / Favicon
+  const handleUploadBranding = async (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "favicon") => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("ขนาดไฟล์รูปภาพต้องไม่เกิน 5 MB")
+      return
+    }
+
+    const isLogo = type === "logo"
+    if (isLogo) setIsUploadingLogo(true)
+    else setIsUploadingFavicon(true)
+
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("type", type)
+
+    try {
+      const res = await api.uploadFormData<{ success: boolean; file_path: string; url: string; message?: string }>("/admin/settings/upload-image", formData)
+      if (res.url) {
+        const key = isLogo ? "site_logo" : "site_favicon"
+        const updated = { ...settings, [key]: res.url }
+        setSettings(updated)
+        // Auto save setting to DB
+        await api.put("/admin/settings", { [key]: res.url })
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("branding-updated"))
+        }
+        toast.success(isLogo ? "อัปโหลดโลโก้ระบบสำเร็จ" : "อัปโหลด Favicon สำเร็จ")
+      }
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "อัปโหลดรูปภาพไม่สำเร็จ"
+      toast.error(errorMsg)
+    } finally {
+      if (isLogo) setIsUploadingLogo(false)
+      else setIsUploadingFavicon(false)
+      e.target.value = ""
+    }
+  }
 
   // 11. Test Telegram
   const handleTestTelegram = async () => {
-    setIsTestingTelegram(true);
+    setIsTestingTelegram(true)
     try {
       const res = await api.post<{ message: string }>("/admin/settings/test-telegram", {
         bot_token: settings.telegram_bot_token || "",
-        chat_id: settings.telegram_chat_id || "",
-      });
-      toast.success(res.message || "ส่งข้อความทดสอบ Telegram สำเร็จ");
+        chat_id: settings.telegram_chat_id || ""
+      })
+      toast.success(res.message || "ส่งข้อความทดสอบ Telegram สำเร็จ")
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "ทดสอบ Telegram ล้มเหลว";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "ทดสอบ Telegram ล้มเหลว"
+      toast.error(errorMsg)
     } finally {
-      setIsTestingTelegram(false);
+      setIsTestingTelegram(false)
     }
-  };
+  }
 
   // Dynamically extract available rooms from users and groups
   const availableRooms = Array.from(
@@ -3192,87 +3267,595 @@ export default function AdminPage() {
 
             {/* ==================== TAB 6: SETTINGS ==================== */}
             {activeTab === "settings" && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm animate-in fade-in duration-200">
-                <div className="flex justify-between items-center">
+              <div className="space-y-6 animate-in fade-in duration-200">
+                {/* Header Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <Sliders className="w-5 h-5 text-brand-500" />
-                      การตั้งค่าระบบ & Telegram Alert
+                      การตั้งค่าระบบส่วนกลาง (Admin System Settings)
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      ปรับแต่งการทำงานของระบบ TU-North CPMS
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      กำหนดค่าการทำงานพื้นฐาน อัตลักษณ์ รูปแบบการส่งงาน การแสดงคะแนน และการแจ้งเตือน
                     </p>
                   </div>
 
-                  <button
-                    onClick={handleTestTelegram}
-                    disabled={isTestingTelegram}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <Bot className="w-4 h-4" />
-                    {isTestingTelegram ? "กำลังทดสอบ..." : "ทดสอบส่ง Telegram"}
-                  </button>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSettings()}
+                      disabled={isSavingSettings}
+                      className="bg-brand-500 hover:bg-brand-600 active:scale-95 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      {isSavingSettings ? "กำลังบันทึก..." : "บันทึกการตั้งค่าทั้งหมด"}
+                    </button>
+                  </div>
                 </div>
 
-                <form onSubmit={handleUpdateSettings} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        ชื่อระบบ (System Name)
-                      </label>
-                      <input
-                        type="text"
-                        value={settings["system_name"] || ""}
-                        onChange={(e) => setSettings({ ...settings, system_name: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500"
-                      />
+                <form onSubmit={handleUpdateSettings} className="space-y-6">
+                  {/* SECTION 1: ข้อมูลทั่วไป (General) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-950/60 flex items-center justify-center text-brand-600 dark:text-brand-400 font-bold text-sm">
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          1. ข้อมูลทั่วไปของระบบ (General Information)
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          กำหนดชื่อระบบ สถาบัน คำอธิบาย และข้อกำหนดกลุ่มโครงงาน
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        จำนวนสมาชิกสูงสุดต่อกลุ่ม (Max Members per Group)
-                      </label>
-                      <input
-                        type="number"
-                        value={settings["max_members_per_group"] || "3"}
-                        onChange={(e) => setSettings({ ...settings, max_members_per_group: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500"
-                      />
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          ชื่อระบบ (System Name)
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={settings["system_name"] ?? "TU-North CPMS"}
+                          onChange={(e) => setSettings({ ...settings, system_name: e.target.value })}
+                          placeholder="TU-North CPMS"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                        />
+                      </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Telegram Bot Token
-                      </label>
-                      <input
-                        type="password"
-                        value={settings["telegram_bot_token"] || ""}
-                        onChange={(e) => setSettings({ ...settings, telegram_bot_token: e.target.value })}
-                        placeholder="Token จาก BotFather"
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 font-en"
-                      />
-                    </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          ชื่อสถานศึกษา / สถาบัน (Institute Name)
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={settings["institute_name"] ?? "โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ"}
+                          onChange={(e) => setSettings({ ...settings, institute_name: e.target.value })}
+                          placeholder="โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                        />
+                      </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Telegram Chat ID (กลุ่มคุณครู / แจ้งเตือนส่งงาน)
-                      </label>
-                      <input
-                        type="text"
-                        value={settings["telegram_chat_id"] || ""}
-                        onChange={(e) => setSettings({ ...settings, telegram_chat_id: e.target.value })}
-                        placeholder="เช่น -100123456789"
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 font-en"
-                      />
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          คำอธิบายระบบ (System Description)
+                        </label>
+                        <input
+                          type="text"
+                          value={settings["system_description"] ?? "ระบบจัดการโครงงานคอมพิวเตอร์ โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ"}
+                          onChange={(e) => setSettings({ ...settings, system_description: e.target.value })}
+                          placeholder="คำอธิบายสั้นๆ เกี่ยวกับระบบ"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          จำนวนสมาชิกสูงสุดต่อกลุ่ม (Max Members per Group)
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          required
+                          value={settings["max_members_per_group"] ?? "3"}
+                          onChange={(e) => setSettings({ ...settings, max_members_per_group: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-en"
+                        />
+                        <p className="text-[10px] text-slate-400">
+                          จำกัดจำนวนนักเรียนที่สามารถเข้าร่วมกลุ่มโครงงานเดียวกัน (ค่ามาตรฐานคือ 3 คน)
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          ข้อความท้ายเว็บ / ลิขสิทธิ์ (Site Copyright)
+                        </label>
+                        <input
+                          type="text"
+                          value={settings["site_copyright"] ?? "© 2026 TU-North Computer Department"}
+                          onChange={(e) => setSettings({ ...settings, site_copyright: e.target.value })}
+                          placeholder="© 2026 TU-North Computer Department"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-en"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="pt-4 flex justify-end">
+                  {/* SECTION 2: รูปภาพและอัตลักษณ์ (Images & Branding) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                        <ImageIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          2. รูปภาพและสัญลักษณ์ของระบบ (Images & Branding)
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          ปรับแต่งโลโก้หลักและไอคอน Favicon ที่แสดงบนแถบเบราว์เซอร์และ Navbar
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Site Logo */}
+                      <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-slate-50/50 dark:bg-slate-950/50 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-brand-500" />
+                            โลโก้ระบบ (Site Logo)
+                          </label>
+                          {settings["site_logo"] && (
+                            <button
+                              type="button"
+                              onClick={() => setSettings({ ...settings, site_logo: "" })}
+                              className="text-[10px] text-red-500 hover:text-red-600 font-semibold cursor-pointer"
+                            >
+                              รีเซ็ตเป็นค่าเริ่มต้น
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Logo Preview */}
+                        <div className="h-24 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center p-3 relative overflow-hidden">
+                          {settings["site_logo"] ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={api.getFileUrl(settings["site_logo"])}
+                              alt="Site Logo Preview"
+                              className="max-h-full max-w-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none"
+                              }}
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500">
+                              <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                CPMS
+                              </div>
+                              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                โลโก้เริ่มต้น (Default Badge)
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Upload / URL Controls */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label className="flex-1">
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                                onChange={(e) => handleUploadBranding(e, "logo")}
+                                disabled={isUploadingLogo}
+                                className="hidden"
+                              />
+                              <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs">
+                                <UploadCloud className="w-3.5 h-3.5 text-brand-500" />
+                                {isUploadingLogo ? "กำลังอัปโหลด..." : "อัปโหลดไฟล์รูปภาพ (PNG/SVG/JPG)"}
+                              </div>
+                            </label>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-slate-400">หรือระบุ URL รูปภาพโดยตรง:</span>
+                            <input
+                              type="text"
+                              value={settings["site_logo"] || ""}
+                              onChange={(e) => setSettings({ ...settings, site_logo: e.target.value })}
+                              placeholder="https://... หรือ /api/files/download?path=..."
+                              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-[11px] outline-none focus:border-brand-500 font-en"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Site Favicon */}
+                      <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-slate-50/50 dark:bg-slate-950/50 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Globe className="w-3.5 h-3.5 text-blue-500" />
+                            ไอคอนเว็บไซต์ (Site Favicon)
+                          </label>
+                          {settings["site_favicon"] && (
+                            <button
+                              type="button"
+                              onClick={() => setSettings({ ...settings, site_favicon: "" })}
+                              className="text-[10px] text-red-500 hover:text-red-600 font-semibold cursor-pointer"
+                            >
+                              รีเซ็ตเป็นค่าเริ่มต้น
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Favicon Preview */}
+                        <div className="h-24 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center p-3 relative overflow-hidden">
+                          <div className="flex items-center gap-2.5 bg-slate-100 dark:bg-slate-800/80 px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                            {settings["site_favicon"] ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={api.getFileUrl(settings["site_favicon"])}
+                                alt="Favicon Preview"
+                                className="w-4 h-4 object-contain"
+                              />
+                            ) : (
+                              <div className="w-4 h-4 rounded-xs bg-brand-500 text-white font-bold text-[8px] flex items-center justify-center">
+                                C
+                              </div>
+                            )}
+                            <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                              {settings["system_name"] || "TU-North CPMS"} — Tab Preview
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Upload / URL Controls */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label className="flex-1">
+                              <input
+                                type="file"
+                                accept="image/x-icon,image/png,image/svg+xml,image/ico"
+                                onChange={(e) => handleUploadBranding(e, "favicon")}
+                                disabled={isUploadingFavicon}
+                                className="hidden"
+                              />
+                              <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs">
+                                <UploadCloud className="w-3.5 h-3.5 text-blue-500" />
+                                {isUploadingFavicon ? "กำลังอัปโหลด..." : "อัปโหลดไฟล์ไอคอน (ICO/PNG/SVG)"}
+                              </div>
+                            </label>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-slate-400">หรือระบุ URL ไอคอนโดยตรง:</span>
+                            <input
+                              type="text"
+                              value={settings["site_favicon"] || ""}
+                              onChange={(e) => setSettings({ ...settings, site_favicon: e.target.value })}
+                              placeholder="https://... หรือ /favicon.ico"
+                              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-[11px] outline-none focus:border-brand-500 font-en"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 3: รูปแบบการส่งงาน (Submission Mode) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                        <ListOrdered className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          3. รูปแบบการส่งงานของนักเรียน (Submission Mode)
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          กำหนดลำดับขั้นและความเข้มงวดในการส่งชิ้นงานของกลุ่มนักเรียน
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Sequential Mode Card */}
+                      <div
+                        onClick={() => setSettings({ ...settings, submission_mode: "sequential" })}
+                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                          (settings["submission_mode"] || "sequential") === "sequential"
+                            ? "border-brand-500 bg-brand-50/40 dark:bg-brand-950/30 ring-4 ring-brand-500/10"
+                            : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-950/40"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                              (settings["submission_mode"] || "sequential") === "sequential"
+                                ? "bg-brand-500 text-white shadow-md shadow-brand-500/30"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                            }`}>
+                              <ListOrdered className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h5 className="text-xs font-bold text-slate-900 dark:text-white">
+                                  ตามลำดับขั้นตอน (Sequential)
+                                </h5>
+                                <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  แนะนำ
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                ต้องผ่านงานก่อนหน้า จึงจะส่งงานถัดไปได้
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            (settings["submission_mode"] || "sequential") === "sequential"
+                              ? "border-brand-500 bg-brand-500 text-white"
+                              : "border-slate-300 dark:border-slate-700"
+                          }`}>
+                            {(settings["submission_mode"] || "sequential") === "sequential" && (
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-slate-900/70 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 leading-relaxed">
+                          🔒 นักเรียนจะสามารถส่งงานในขั้นตอนที่ N ได้ก็ต่อเมื่อขั้นตอนที่ N-1 ได้รับการประเมินสถานะ <span className="font-semibold text-emerald-600 dark:text-emerald-400">“อนุมัติ (APPROVED)”</span> จากครูผู้สอนแล้วเท่านั้น
+                        </p>
+                      </div>
+
+                      {/* Open Mode Card */}
+                      <div
+                        onClick={() => setSettings({ ...settings, submission_mode: "open" })}
+                        className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                          settings["submission_mode"] === "open"
+                            ? "border-brand-500 bg-brand-50/40 dark:bg-brand-950/30 ring-4 ring-brand-500/10"
+                            : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-950/40"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                              settings["submission_mode"] === "open"
+                                ? "bg-brand-500 text-white shadow-md shadow-brand-500/30"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                            }`}>
+                              <Shuffle className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h5 className="text-xs font-bold text-slate-900 dark:text-white">
+                                  อิสระ (Open Submission)
+                                </h5>
+                                <span className="bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                  ยืดหยุ่น
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                ส่งงานขั้นตอนใดก็ได้ ไม่ต้องเรียงลำดับ
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            settings["submission_mode"] === "open"
+                              ? "border-brand-500 bg-brand-500 text-white"
+                              : "border-slate-300 dark:border-slate-700"
+                          }`}>
+                            {settings["submission_mode"] === "open" && (
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-slate-900/70 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 leading-relaxed">
+                          🔓 นักเรียนสามารถส่งงานขั้นตอนใดก่อนก็ได้โดยไม่ต้องรอขั้นตอนก่อนหน้า เหมาะสำหรับช่วงส่งงานรอบแก้ไข หรือส่งเอกสารหลายส่วนพร้อมกัน
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 4: การให้คะแนนและการแสดงผล (Grading & Score Visibility) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-sm">
+                        <Eye className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          4. การให้คะแนนและการมองเห็นคะแนน (Grading & Score Visibility)
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          ควบคุมการอนุญาตให้นักเรียนมองเห็นคะแนนการตรวจงานและคะแนน Rubric นำเสนอ
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            แสดงคะแนนให้นักเรียนเห็น (Show Scores to Students)
+                          </span>
+                          {(settings["show_scores_to_students"] !== "false" && settings["show_scores_to_students"] !== "0") ? (
+                            <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> เปิด (ON)
+                            </span>
+                          ) : (
+                            <span className="bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <EyeOff className="w-3 h-3" /> ปิด (OFF)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl">
+                          เมื่อเปิด (ON) นักเรียนจะเห็นคะแนนของแต่ละขั้นตอนและคะแนนเกณฑ์ Rubric จากกรรมการ / เมื่อปิด (OFF) ระบบจะซ่อนตัวเลขคะแนนทั้งหมดในหน้าจอนักเรียนจนกว่าจะพร้อมประกาศ
+                        </p>
+                      </div>
+
+                      {/* Switch Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentVal = settings["show_scores_to_students"] !== "false" && settings["show_scores_to_students"] !== "0"
+                          setSettings({
+                            ...settings,
+                            show_scores_to_students: currentVal ? "false" : "true"
+                          })
+                        }}
+                        className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          (settings["show_scores_to_students"] !== "false" && settings["show_scores_to_students"] !== "0")
+                            ? "bg-brand-500"
+                            : "bg-slate-300 dark:bg-slate-700"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            (settings["show_scores_to_students"] !== "false" && settings["show_scores_to_students"] !== "0")
+                              ? "translate-x-7"
+                              : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* SECTION 5: การแจ้งเตือน (Notifications & Telegram) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">
+                          <Bell className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                            5. การแจ้งเตือนและการเชื่อมต่อ (Notifications & Telegram Bot)
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            ส่งการแจ้งเตือนอัตโนมัติเมื่อมีการสร้างกลุ่ม ส่งงาน ตรวจงาน และจองรอบนำเสนอ
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleTestTelegram}
+                        disabled={isTestingTelegram || !(settings["telegram_bot_token"] || settings["telegram_chat_id"])}
+                        className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 self-start sm:self-auto"
+                      >
+                        <Bot className="w-4 h-4" />
+                        {isTestingTelegram ? "กำลังทดสอบ..." : "ทดสอบส่ง Telegram"}
+                      </button>
+                    </div>
+
+                    {/* Master Notification Toggle */}
+                    <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            เปิดใช้งานระบบแจ้งเตือน (Enable Notifications)
+                          </span>
+                          {(settings["telegram_bot_enabled"] === "true" || settings["telegram_bot_enabled"] === "1") ? (
+                            <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Bell className="w-3 h-3" /> เปิดใช้งาน (ON)
+                            </span>
+                          ) : (
+                            <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <BellOff className="w-3 h-3" /> ปิดการแจ้งเตือน (OFF)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          สลับเปิด/ปิดการยิงข้อความแจ้งเตือนทั้งหมดในระบบ
+                        </p>
+                      </div>
+
+                      {/* Toggle Switch */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentVal = settings["telegram_bot_enabled"] === "true" || settings["telegram_bot_enabled"] === "1"
+                          setSettings({
+                            ...settings,
+                            telegram_bot_enabled: currentVal ? "false" : "true"
+                          })
+                        }}
+                        className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          (settings["telegram_bot_enabled"] === "true" || settings["telegram_bot_enabled"] === "1")
+                            ? "bg-blue-600"
+                            : "bg-slate-300 dark:bg-slate-700"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            (settings["telegram_bot_enabled"] === "true" || settings["telegram_bot_enabled"] === "1")
+                              ? "translate-x-7"
+                              : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4.5 pt-2">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                            <Bot className="w-3.5 h-3.5 text-blue-500" />
+                            Telegram Bot Token
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowBotToken(!showBotToken)}
+                            className="text-[10px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
+                          >
+                            {showBotToken ? "ซ่อน Token" : "แสดง Token"}
+                          </button>
+                        </div>
+                        <input
+                          type={showBotToken ? "text" : "password"}
+                          value={settings["telegram_bot_token"] || ""}
+                          onChange={(e) => setSettings({ ...settings, telegram_bot_token: e.target.value })}
+                          placeholder="Token ที่ได้จาก @BotFather (เช่น 123456789:ABCdef...)"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-en"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-blue-500" />
+                          Telegram Chat ID (กลุ่มครู / แจ้งเตือน)
+                        </label>
+                        <input
+                          type="text"
+                          value={settings["telegram_chat_id"] || ""}
+                          onChange={(e) => setSettings({ ...settings, telegram_chat_id: e.target.value })}
+                          placeholder="เช่น -100123456789 หรือ Chat ID ส่วนตัว"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-en"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Action Submit Button */}
+                  <div className="pt-2 flex justify-end">
                     <button
                       type="submit"
-                      className="bg-brand-500 hover:bg-brand-600 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md transition-all cursor-pointer"
+                      disabled={isSavingSettings}
+                      className="bg-brand-500 hover:bg-brand-600 active:scale-95 text-white font-bold px-8 py-3 rounded-2xl text-xs shadow-lg shadow-brand-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      บันทึกการตั้งค่าทั้งหมด
+                      <Save className="w-4 h-4" />
+                      {isSavingSettings ? "กำลังบันทึกข้อมูล..." : "บันทึกการตั้งค่าทั้งหมด"}
                     </button>
                   </div>
                 </form>

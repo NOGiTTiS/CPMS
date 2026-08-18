@@ -10,52 +10,63 @@ import { toast } from "sonner";
 import { LogIn, GraduationCap, ShieldCheck, Lock, User as UserIcon } from "lucide-react";
 
 function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, token, setAuth, initAuth, isInitialized } = useAuthStore();
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user, token, setAuth, initAuth, isInitialized } = useAuthStore()
 
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [identifier, setIdentifier] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [siteLogo, setSiteLogo] = useState("")
+  const [systemName, setSystemName] = useState("TU-North CPMS")
+  const [instituteName, setInstituteName] = useState("ระบบจัดการโครงงานคอมพิวเตอร์ โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ")
 
   useEffect(() => {
-    initAuth();
-  }, [initAuth]);
+    initAuth()
+    api.get<{ data?: Record<string, string> }>("/settings/public")
+      .then((res) => {
+        const d = res?.data || {}
+        if (d["site_logo"]) setSiteLogo(d["site_logo"])
+        if (d["system_name"]) setSystemName(d["system_name"])
+        if (d["institute_name"]) setInstituteName(d["institute_name"])
+      })
+      .catch(() => {})
+  }, [initAuth])
 
   useEffect(() => {
     if (isInitialized && token && user) {
       if (user.role === "ADMIN") {
-        router.replace("/admin");
+        router.replace("/admin")
       } else if (user.role === "TEACHER") {
-        router.replace("/teacher");
+        router.replace("/teacher")
       } else {
-        router.replace("/student");
+        router.replace("/student")
       }
     }
-  }, [isInitialized, token, user, router]);
+  }, [isInitialized, token, user, router])
 
   useEffect(() => {
     if (searchParams.get("expired")) {
-      toast.error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+      toast.error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง")
     }
-  }, [searchParams]);
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     if (!identifier.trim() || !password.trim()) {
-      toast.error("กรุณากรอกรหัสนักเรียน/อีเมล และรหัสผ่าน");
-      return;
+      toast.error("กรุณากรอกรหัสนักเรียน/อีเมล และรหัสผ่าน")
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
     try {
       const res = await api.post<LoginResponse>("/auth/login", {
         identifier: identifier.trim(),
         password: password.trim(),
-      });
+      })
 
-      const loginUser = res?.user || res?.data?.user;
-      const accessToken = res?.token || res?.access_token || res?.data?.access_token || res?.data?.token;
+      const loginUser = res?.user || res?.data?.user
+      const accessToken = res?.token || res?.access_token || res?.data?.access_token || res?.data?.token
 
       if (accessToken && loginUser) {
         setAuth({
@@ -63,42 +74,52 @@ function LoginForm() {
           access_token: accessToken,
           refresh_token: res.refresh_token || res.data?.refresh_token,
           user: loginUser,
-        });
-        toast.success(`ยินดีต้อนรับคุณ ${loginUser.full_name}`);
+        })
+        toast.success(`ยินดีต้อนรับคุณ ${loginUser.full_name}`)
 
-        const redirectUrl = searchParams.get("redirect");
+        const redirectUrl = searchParams.get("redirect")
         if (redirectUrl) {
-          router.replace(redirectUrl);
-          return;
+          router.replace(redirectUrl)
+          return
         }
 
         if (loginUser.role === "ADMIN") {
-          router.replace("/admin");
+          router.replace("/admin")
         } else if (loginUser.role === "TEACHER") {
-          router.replace("/teacher");
+          router.replace("/teacher")
         } else {
-          router.replace("/student");
+          router.replace("/student")
         }
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ"
+      toast.error(errorMsg)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none transition-colors space-y-6">
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 mb-1 border border-brand-100 dark:border-brand-900/50">
-          <GraduationCap className="w-7 h-7" />
-        </div>
+        {siteLogo ? (
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white dark:bg-slate-950 mb-1 border border-slate-200 dark:border-slate-800 p-1.5 shadow-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={api.getFileUrl(siteLogo)} alt="Logo" className="w-full h-full object-contain" />
+          </div>
+        ) : (
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 mb-1 border border-brand-100 dark:border-brand-900/50">
+            <GraduationCap className="w-7 h-7" />
+          </div>
+        )}
         <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-          เข้าสู่ระบบจัดการโครงงาน
+          {systemName}
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-          นักเรียนสามารถเข้าใช้งานด้วย <span className="font-semibold text-brand-600 dark:text-brand-400">รหัสนักเรียน</span> หรือ <span className="font-semibold text-brand-600 dark:text-brand-400">อีเมล</span>
+          {instituteName}
+        </p>
+        <p className="text-[11px] text-brand-600 dark:text-brand-400 font-medium">
+          เข้าสู่ระบบด้วย รหัสนักเรียน หรือ อีเมล
         </p>
       </div>
 
