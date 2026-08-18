@@ -51,7 +51,13 @@ import {
   CalendarRange,
   CheckCircle2,
   XCircle,
-  Star
+  Star,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  EyeOff,
+  ToggleLeft,
+  ToggleRight
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -185,6 +191,7 @@ export default function AdminPage() {
   const [critDesc, setCritDesc] = useState("");
   const [critMaxScore, setCritMaxScore] = useState<number>(10);
   const [critOrder, setCritOrder] = useState<number>(1);
+  const [critIsActive, setCritIsActive] = useState<boolean>(true);
 
   // Telegram test state
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
@@ -805,7 +812,7 @@ export default function AdminPage() {
     }
   };
 
-  // 9. Save Criteria
+  // 9. Criteria Management (CRUD, Toggle, Reorder)
   const handleSaveCriteria = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -814,7 +821,7 @@ export default function AdminPage() {
         description: critDesc,
         max_score: Number(critMaxScore),
         criteria_order: Number(critOrder),
-        is_active: true,
+        is_active: critIsActive,
       };
 
       if (showCriteriaModal === "CREATE") {
@@ -829,6 +836,50 @@ export default function AdminPage() {
       fetchAllAdminData();
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "บันทึกเกณฑ์ Rubric ไม่สำเร็จ";
+      toast.error(errorMsg);
+    }
+  };
+
+  const handleEditCriteria = (crit: PresentationCriteria) => {
+    setShowCriteriaModal(crit);
+    setCritLabel(crit.label);
+    setCritDesc(crit.description || "");
+    setCritMaxScore(crit.max_score);
+    setCritOrder(crit.criteria_order);
+    setCritIsActive(crit.is_active);
+  };
+
+  const handleToggleCriteriaActive = async (crit: PresentationCriteria) => {
+    try {
+      await api.put(`/presentation/criteria/${crit.id}`, { is_active: !crit.is_active });
+      toast.success(crit.is_active ? "ปิดใช้งานเกณฑ์เรียบร้อย" : "เปิดใช้งานเกณฑ์เรียบร้อย");
+      fetchAllAdminData();
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "เปลี่ยนสถานะเกณฑ์ไม่สำเร็จ";
+      toast.error(errorMsg);
+    }
+  };
+
+  const handleMoveCriteria = async (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= criteriaList.length) return;
+
+    const newCriteriaList = [...criteriaList];
+    const temp = newCriteriaList[index];
+    newCriteriaList[index] = newCriteriaList[targetIndex];
+    newCriteriaList[targetIndex] = temp;
+
+    const payload = newCriteriaList.map((item, idx) => ({
+      id: item.id,
+      criteria_order: idx + 1,
+    }));
+
+    try {
+      await api.put("/presentation/criteria/reorder", payload);
+      toast.success("จัดลำดับเกณฑ์เรียบร้อย");
+      fetchAllAdminData();
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "จัดลำดับเกณฑ์ไม่สำเร็จ";
       toast.error(errorMsg);
     }
   };
@@ -2099,12 +2150,18 @@ export default function AdminPage() {
 
                 {/* Rubric Criteria */}
                 <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                     <div>
                       <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-brand-500" />
                         เกณฑ์การประเมิน Rubric (Rubric Criteria)
                       </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        คะแนนเต็มรวมทั้งหมดของเกณฑ์ที่เปิดใช้งาน:{" "}
+                        <span className="font-bold text-brand-600 dark:text-brand-400">
+                          {criteriaList.filter((c) => c.is_active).reduce((sum, c) => sum + Number(c.max_score || 0), 0)} คะแนน
+                        </span>
+                      </p>
                     </div>
                     <button
                       onClick={() => {
@@ -2113,41 +2170,122 @@ export default function AdminPage() {
                         setCritDesc("");
                         setCritMaxScore(10);
                         setCritOrder(criteriaList.length + 1);
+                        setCritIsActive(true);
                       }}
-                      className="bg-brand-500 hover:bg-brand-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                      className="bg-brand-500 hover:bg-brand-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Plus className="w-4 h-4" /> เพิ่มเกณฑ์ Rubric
                     </button>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                    {criteriaList.map((crit) => (
-                      <div
-                        key={crit.id}
-                        className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 flex justify-between items-center"
-                      >
-                        <div>
-                          <div className="font-bold text-slate-900 dark:text-white text-xs">
-                            {crit.criteria_order}. {crit.label} (เต็ม {crit.max_score} คะแนน)
-                          </div>
-                          {crit.description && (
-                            <p className="text-[11px] text-slate-400">{crit.description}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={async () => {
-                            if (confirm("ต้องการลบเกณฑ์นี้หรือไม่?")) {
-                              await api.delete(`/presentation/criteria/${crit.id}`);
-                              toast.success("ลบเกณฑ์ Rubric สำเร็จ");
-                              fetchAllAdminData();
-                            }
-                          }}
-                          className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                    {criteriaList.length === 0 ? (
+                      <div className="p-8 text-center bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+                        ยังไม่มีเกณฑ์การประเมิน Rubric ในระบบ คลิก "เพิ่มเกณฑ์ Rubric" เพื่อเริ่มต้นสร้าง
                       </div>
-                    ))}
+                    ) : (
+                      criteriaList.map((crit, idx) => (
+                        <div
+                          key={crit.id}
+                          className={`bg-white dark:bg-slate-900 border ${
+                            crit.is_active ? "border-slate-200/80 dark:border-slate-800" : "border-slate-200/40 dark:border-slate-800/40 opacity-70 bg-slate-50/50 dark:bg-slate-950/40"
+                          } rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-all hover:shadow-sm`}
+                        >
+                          <div className="flex items-start gap-3 flex-1">
+                            {/* Reorder Buttons */}
+                            <div className="flex flex-col gap-0.5">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveCriteria(idx, "up")}
+                                title="เลื่อนขึ้น"
+                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === criteriaList.length - 1}
+                                onClick={() => handleMoveCriteria(idx, "down")}
+                                title="เลื่อนลง"
+                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 dark:text-white text-xs">
+                                  {crit.criteria_order}. {crit.label}
+                                </span>
+                                <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/70 border border-brand-200/50 dark:border-brand-800/50 px-2 py-0.5 rounded-md">
+                                  เต็ม {crit.max_score} คะแนน
+                                </span>
+                                {crit.is_active ? (
+                                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/50 dark:border-emerald-800/50 px-2 py-0.5 rounded-md">
+                                    เปิดใช้งาน
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                                    ปิดใช้งาน
+                                  </span>
+                                )}
+                              </div>
+                              {crit.description && (
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{crit.description}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-1.5 self-end sm:self-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCriteriaActive(crit)}
+                              title={crit.is_active ? "คลิกเพื่อปิดใช้งาน" : "คลิกเพื่อเปิดใช้งาน"}
+                              className={`p-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all ${
+                                crit.is_active
+                                  ? "text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  : "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                              }`}
+                            >
+                              {crit.is_active ? <EyeOff className="w-3.5 h-3.5 text-slate-400" /> : <Eye className="w-3.5 h-3.5 text-emerald-500" />}
+                              <span className="text-[10px]">{crit.is_active ? "ปิด" : "เปิด"}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleEditCriteria(crit)}
+                              title="แก้ไขเกณฑ์"
+                              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 cursor-pointer transition-all"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (confirm(`ต้องการลบเกณฑ์ "${crit.label}" หรือไม่?`)) {
+                                  try {
+                                    await api.delete(`/presentation/criteria/${crit.id}`);
+                                    toast.success("ลบเกณฑ์ Rubric สำเร็จ");
+                                    fetchAllAdminData();
+                                  } catch (err: unknown) {
+                                    const errorMsg = err instanceof Error ? err.message : "ลบเกณฑ์ไม่สำเร็จ";
+                                    toast.error(errorMsg);
+                                  }
+                                }
+                              }}
+                              title="ลบเกณฑ์"
+                              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 hover:text-red-700 cursor-pointer transition-all"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -3185,65 +3323,92 @@ export default function AdminPage() {
               title={showCriteriaModal === "CREATE" ? "เพิ่มเกณฑ์ Rubric" : "แก้ไขเกณฑ์ Rubric"}
               maxWidth="md"
             >
-              <form onSubmit={handleSaveCriteria} className="space-y-3">
+              <form onSubmit={handleSaveCriteria} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold">หัวข้อเกณฑ์ *</label>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    หัวข้อเกณฑ์การประเมิน <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={critLabel}
                     onChange={(e) => setCritLabel(e.target.value)}
-                    placeholder="เช่น ความคิดสร้างสรรค์และนวัตกรรม"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"
+                    placeholder="เช่น ความคิดสร้างสรรค์และคุณค่าของโครงงาน"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:border-brand-500 transition-colors"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold">คำอธิบาย</label>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    คำอธิบายเกณฑ์และแนวทางการให้คะแนน
+                  </label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={critDesc}
                     onChange={(e) => setCritDesc(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"
+                    placeholder="ระบุแนวทางการให้คะแนน เช่น ความแปลกใหม่ ประโยชน์ที่ได้รับ และการประยุกต์ใช้เทคโนโลยี"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:border-brand-500 transition-colors leading-relaxed"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold">คะแนนเต็ม</label>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      คะแนนเต็ม <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="number"
                       required
+                      min={0.5}
+                      step={0.5}
                       value={critMaxScore}
                       onChange={(e) => setCritMaxScore(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:border-brand-500 transition-colors"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold">ลำดับ</label>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      ลำดับการแสดงผล <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="number"
                       required
+                      min={1}
                       value={critOrder}
                       onChange={(e) => setCritOrder(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:border-brand-500 transition-colors"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-2">
+                {/* Active Checkbox */}
+                <div className="flex items-center gap-2 pt-1">
+                  <label className="relative inline-flex items-center cursor-pointer gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={critIsActive}
+                      onChange={(e) => setCritIsActive(e.target.checked)}
+                      className="w-4 h-4 rounded text-brand-500 focus:ring-brand-400 dark:focus:ring-brand-500 dark:bg-slate-950 border-slate-300 dark:border-slate-700"
+                    />
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      เปิดใช้งานเกณฑ์นี้ในการประเมิน (Active)
+                    </span>
+                  </label>
+                </div>
+
+                <div className="flex gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <button
                     type="button"
                     onClick={() => setShowCriteriaModal(null)}
-                    className="flex-1 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold cursor-pointer"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold cursor-pointer"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-sm cursor-pointer transition-colors"
                   >
-                    บันทึก
+                    บันทึกข้อมูล
                   </button>
                 </div>
               </form>

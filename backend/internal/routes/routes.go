@@ -113,6 +113,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	presGroup.Delete("/bookings/:bookingId", presentationCtrl.CancelBooking)
 	presGroup.Get("/criteria", presentationCtrl.ListCriteria)
 	presGroup.Post("/criteria", middleware.AdminGuard(), presentationCtrl.CreateCriteria)
+	presGroup.Put("/criteria/reorder", middleware.AdminGuard(), presentationCtrl.ReorderCriteria)
 	presGroup.Put("/criteria/:id", middleware.AdminGuard(), presentationCtrl.UpdateCriteria)
 	presGroup.Delete("/criteria/:id", middleware.AdminGuard(), presentationCtrl.DeleteCriteria)
 	presGroup.Post("/scores", middleware.TeacherGuard(), presentationCtrl.SubmitScore)

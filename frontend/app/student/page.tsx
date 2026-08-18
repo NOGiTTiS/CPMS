@@ -42,7 +42,14 @@ import {
   UserMinus,
   School,
   Edit,
-  CalendarRange
+  CalendarRange,
+  Check,
+  CheckSquare,
+  Square,
+  Search,
+  Filter,
+  UserCheck,
+  RefreshCw
 } from "lucide-react";
 
 export default function StudentPage() {
@@ -51,22 +58,26 @@ export default function StudentPage() {
   const [steps, setSteps] = useState<ProjectStep[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [slots, setSlots] = useState<PresentationSlot[]>([]);
-  const [teachers, setTeachers] = useState<User[]>([]);
-  const [activeYears, setActiveYears] = useState<AcademicYear[]>([]);
+  const [rubricCriteria, setRubricCriteria] = useState<PresentationCriteria[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"overview" | "steps" | "defense">("overview");
 
   // Modals
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showEditGroup, setShowEditGroup] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSubmitWork, setShowSubmitWork] = useState<ProjectStep | null>(null);
-  
+  const [showBookDefense, setShowBookDefense] = useState(false);
+  const [showScoreModal, setShowScoreModal] = useState(false);
+
   // Create Group Form
   const [projectNameTh, setProjectNameTh] = useState("");
   const [projectNameEn, setProjectNameEn] = useState("");
   const [advisorId, setAdvisorId] = useState("");
   const [advisorCustom, setAdvisorCustom] = useState("");
-  const [academicYear, setAcademicYear] = useState("2568");
+  const [academicYear, setAcademicYear] = useState("");
+  const [teachers, setTeachers] = useState<User[]>([]);
+  const [activeYears, setActiveYears] = useState<AcademicYear[]>([]);
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
 
   // Edit Group Form
@@ -76,13 +87,13 @@ export default function StudentPage() {
   const [editAdvisorCustom, setEditAdvisorCustom] = useState("");
   const [isSubmittingEditGroup, setIsSubmittingEditGroup] = useState(false);
 
-  // Search & Add Students
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [availableClassmates, setAvailableClassmates] = useState<User[]>([]);
-  const [selectedClassmateId, setSelectedClassmateId] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingClassmates, setIsLoadingClassmates] = useState(false);
+  // Multi-Select Add Members
+  const [availableStudents, setAvailableStudents] = useState<User[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [filterRoom, setFilterRoom] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [isLoadingAvailableStudents, setIsLoadingAvailableStudents] = useState(false);
+  const [isSubmittingAddMembers, setIsSubmittingAddMembers] = useState(false);
 
   // Submit Work Form
   const [submissionType, setSubmissionType] = useState<"file" | "link">("file");
@@ -307,77 +318,101 @@ export default function StudentPage() {
     }
   };
 
+  // Fetch available students by room
+  const fetchAvailableStudentsForRoom = async (room: string) => {
+    setIsLoadingAvailableStudents(true)
+    try {
+      const url = room && room !== "ALL"
+        ? `/groups/search-students?room=${encodeURIComponent(room)}`
+        : "/groups/search-students"
+      const res = await api.get<{ data: User[] }>(url)
+      setAvailableStudents(res.data || [])
+    } catch {
+      setAvailableStudents([])
+    } finally {
+      setIsLoadingAvailableStudents(false)
+    }
+  }
+
   // Open Add Member Modal
   const handleOpenAddMember = async () => {
-    setShowAddMember(true);
-    setSearchQuery("");
-    setSearchResults([]);
-    setSelectedClassmateId("");
-    setIsLoadingClassmates(true);
-    try {
-      const roomParam = group?.room || user?.room || "";
-      const res = await api.get<{ data: User[] }>(`/groups/search-students?room=${encodeURIComponent(roomParam)}`);
-      setAvailableClassmates(res.data || []);
-    } catch {
-      setAvailableClassmates([]);
-    } finally {
-      setIsLoadingClassmates(false);
+    setShowAddMember(true)
+    setSelectedStudentIds([])
+    setFilterSearch("")
+    const defaultRoom = group?.room || user?.room || ""
+    setFilterRoom(defaultRoom)
+    await fetchAvailableStudentsForRoom(defaultRoom)
+  }
+
+  const handleRoomFilterChange = async (room: string) => {
+    setFilterRoom(room)
+    await fetchAvailableStudentsForRoom(room)
+  }
+
+  const handleToggleSelectStudent = (studentId: string, maxSlots: number) => {
+    if (selectedStudentIds.includes(studentId)) {
+      setSelectedStudentIds(selectedStudentIds.filter((id) => id !== studentId))
+    } else {
+      if (selectedStudentIds.length >= maxSlots) {
+        toast.warning(`กลุ่มนี้สามารถเลือกสมาชิกเพิ่มได้อีกไม่เกิน ${maxSlots} คน`)
+        return
+      }
+      setSelectedStudentIds([...selectedStudentIds, studentId])
     }
-  };
+  }
+
+  const handleSelectAllInView = (studentsInView: User[], maxSlots: number) => {
+    const idsInView = studentsInView.map((s) => s.id)
+    const isAllSelected = idsInView.length > 0 && idsInView.every((id) => selectedStudentIds.includes(id))
+    
+    if (isAllSelected) {
+      // Deselect those in view
+      setSelectedStudentIds(selectedStudentIds.filter((id) => !idsInView.includes(id)))
+    } else {
+      // Select up to maxSlots
+      const newSelection = Array.from(new Set([...selectedStudentIds, ...idsInView])).slice(0, maxSlots)
+      if (newSelection.length === selectedStudentIds.length && idsInView.length > 0) {
+        toast.warning(`กลุ่มนี้สามารถเลือกสมาชิกเพิ่มได้อีกไม่เกิน ${maxSlots} คน`)
+      }
+      setSelectedStudentIds(newSelection)
+    }
+  }
+
+  const handleAddSelectedMembers = async () => {
+    if (!group || selectedStudentIds.length === 0) return
+    setIsSubmittingAddMembers(true)
+    try {
+      await api.post(`/groups/${group.id}/members`, {
+        user_ids: selectedStudentIds,
+      })
+      toast.success(`เพิ่มเพื่อนร่วมกลุ่ม (${selectedStudentIds.length} คน) เรียบร้อยแล้ว`)
+      setShowAddMember(false)
+      setSelectedStudentIds([])
+      setFilterSearch("")
+      fetchStudentData()
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "เพิ่มสมาชิกไม่สำเร็จ"
+      toast.error(errorMsg)
+    } finally {
+      setIsSubmittingAddMembers(false)
+    }
+  }
 
   const handleDissolveGroup = async () => {
-    if (!group) return;
+    if (!group) return
     if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการยุบกลุ่มโครงงานนี้? ข้อมูลการส่งงานและไฟล์ทั้งหมดจะถูกลบ")) {
-      return;
+      return
     }
 
     try {
-      await api.delete(`/groups/${group.id}`);
-      toast.success("ยุบกลุ่มโครงงานสำเร็จ");
-      fetchStudentData();
+      await api.delete(`/groups/${group.id}`)
+      toast.success("ยุบกลุ่มโครงงานสำเร็จ")
+      fetchStudentData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "ยุบกลุ่มไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "ยุบกลุ่มไม่สำเร็จ"
+      toast.error(errorMsg)
     }
-  };
-
-  const handleSearchStudents = async (query: string) => {
-    setSearchQuery(query);
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const res = await api.get<{ data?: User[]; users?: User[] }>(`/groups/search-students?query=${encodeURIComponent(query)}`);
-      const usersList = res?.data || res?.users || [];
-      if (Array.isArray(usersList)) {
-        setSearchResults(usersList);
-      } else {
-        setSearchResults([]);
-      }
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleAddMember = async (studentId: string) => {
-    if (!group) return;
-    try {
-      await api.post(`/groups/${group.id}/members`, { user_id: studentId });
-      toast.success("เพิ่มสมาชิกเข้ากลุ่มเรียบร้อย");
-      setShowAddMember(false);
-      setSearchQuery("");
-      setSearchResults([]);
-      fetchStudentData();
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "เพิ่มสมาชิกไม่สำเร็จ";
-      toast.error(errorMsg);
-    }
-  };
+  }
 
   const handleRemoveMember = async (memberUserId: string) => {
     if (!group) return;
@@ -1246,106 +1281,224 @@ export default function StudentPage() {
               </form>
             </Modal>
 
-            {/* Modal: Add Member */}
+            {/* Modal: Add Member (Multi-Select) */}
             <Modal
               isOpen={showAddMember}
               onClose={() => setShowAddMember(false)}
               title="เพิ่มเพื่อนร่วมกลุ่มโครงงาน"
-              description={`เลือกเพื่อนในห้อง ม.${group?.room || user?.room || "-"} หรือค้นหาเพื่อนที่ยังไม่มีกลุ่ม`}
+              description="เลือกเพื่อนร่วมห้องหรือเพื่อนระดับชั้น ม.6 ที่ยังไม่มีกลุ่ม เพื่อเพิ่มเข้ากลุ่มโครงงานพร้อมกัน"
               icon={UserPlus}
-              maxWidth="lg"
+              maxWidth="2xl"
             >
-              <div className="space-y-4">
-                {/* Section 1: Quick Pick from Classmates */}
-                {availableClassmates.length > 0 && (
-                  <div className="space-y-2 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                      <span>เพื่อนในห้องที่ยังไม่มีกลุ่ม ({availableClassmates.length} คน)</span>
-                      {isLoadingClassmates && <span className="text-[10px] text-slate-400 font-normal">กำลังโหลด...</span>}
-                    </label>
-                    
-                    <div className="flex gap-2">
-                      <select
-                        value={selectedClassmateId}
-                        onChange={(e) => setSelectedClassmateId(e.target.value)}
-                        className="flex-1 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500"
-                      >
-                        <option value="">-- เลือกเพื่อนในห้อง --</option>
-                        {availableClassmates.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.full_name} {c.student_id ? `(${c.student_id})` : ""} - ม.{c.room || group?.room}
-                          </option>
-                        ))}
-                      </select>
+              {(() => {
+                const maxMembersLimit = 3
+                const currentMembersCount = group?.members?.length || 1
+                const remainingSlots = Math.max(0, maxMembersLimit - currentMembersCount)
+                const filteredStudents = availableStudents.filter((s) => {
+                  const q = filterSearch.toLowerCase().trim()
+                  if (!q) return true
+                  return (
+                    s.full_name?.toLowerCase().includes(q) ||
+                    s.student_id?.toLowerCase().includes(q) ||
+                    s.room?.toLowerCase().includes(q)
+                  )
+                })
+                const allVisibleSelected = filteredStudents.length > 0 && filteredStudents.every((s) => selectedStudentIds.includes(s.id))
 
-                      <button
-                        type="button"
-                        disabled={!selectedClassmateId}
-                        onClick={() => {
-                          if (selectedClassmateId) {
-                            handleAddMember(selectedClassmateId);
-                          }
-                        }}
-                        className="bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1 shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> เพิ่มเข้ากลุ่ม
-                      </button>
+                return (
+                  <div className="space-y-4">
+                    {/* Quota & Status Banner */}
+                    <div className="bg-brand-50/70 dark:bg-brand-950/40 border border-brand-200/80 dark:border-brand-900/60 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold">
+                          <Users className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 dark:text-slate-200">
+                            สมาชิกปัจจุบัน: <span className="font-en text-brand-600 dark:text-brand-400">{currentMembersCount} / {maxMembersLimit}</span> คน
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {remainingSlots > 0 ? (
+                              <span>สามารถเลือกเพิ่มได้อีกสูงสุด <strong className="font-en text-brand-600 dark:text-brand-400 font-bold">{remainingSlots}</strong> คน</span>
+                            ) : (
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold">กลุ่มนี้มีสมาชิกครบตามจำนวนสูงสุดแล้ว</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 rounded-full bg-white dark:bg-slate-900 border border-brand-300/80 dark:border-brand-800 text-brand-700 dark:text-brand-300 font-bold shadow-xs">
+                          เลือกแล้ว {selectedStudentIds.length} คน
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Filter Bar: Room Selector + Instant Search */}
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                      <div className="sm:col-span-5 flex items-center gap-1.5">
+                        <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <select
+                          value={filterRoom}
+                          onChange={(e) => handleRoomFilterChange(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500"
+                        >
+                          <option value={group?.room || user?.room || ""}>
+                            ห้องของฉัน (ม.{group?.room || user?.room || "-"})
+                          </option>
+                          <option value="ALL">ทุกห้องเรียน (ม.6 ทั้งหมด)</option>
+                          {["6.1", "6.2", "6.3", "6.4", "6.5", "6.6"]
+                            .filter((r) => r !== (group?.room || user?.room))
+                            .map((r) => (
+                              <option key={r} value={r}>
+                                ห้อง ม.{r}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-7 relative">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={filterSearch}
+                          onChange={(e) => setFilterSearch(e.target.value)}
+                          placeholder="ค้นหาชื่อ หรือ รหัสนักเรียน..."
+                          className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Multi-Select Toolbar */}
+                    <div className="flex items-center justify-between text-xs px-1 text-slate-500 dark:text-slate-400">
+                      <span>
+                        พบเพื่อนที่ยังไม่มีกลุ่ม <strong className="font-en text-slate-800 dark:text-slate-200">{filteredStudents.length}</strong> คน
+                      </span>
+                      {filteredStudents.length > 0 && remainingSlots > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectAllInView(filteredStudents, remainingSlots)}
+                          className="text-brand-600 dark:text-brand-400 hover:underline font-semibold cursor-pointer text-xs"
+                        >
+                          {allVisibleSelected ? "ยกเลิกการเลือกทั้งหมด" : `เลือกทั้งหมด (${Math.min(filteredStudents.length, remainingSlots)} คน)`}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Student Multi-Select List */}
+                    <div className="max-h-72 overflow-y-auto space-y-1.5 p-1 border border-slate-200/80 dark:border-slate-800 rounded-2xl bg-slate-50/40 dark:bg-slate-950/40">
+                      {isLoadingAvailableStudents ? (
+                        <div className="py-8 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
+                          <RefreshCw className="w-4 h-4 animate-spin text-brand-500" />
+                          <span>กำลังโหลดรายชื่อนักเรียน...</span>
+                        </div>
+                      ) : filteredStudents.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-slate-400">
+                          {filterSearch ? "ไม่พบนักเรียนที่ตรงกับคำค้นหา" : "ไม่พบเพื่อนที่ยังไม่มีกลุ่มในห้องที่เลือก"}
+                        </div>
+                      ) : (
+                        filteredStudents.map((std) => {
+                          const isSelected = selectedStudentIds.includes(std.id)
+                          const isReachedLimit = !isSelected && selectedStudentIds.length >= remainingSlots
+                          const isDisabled = remainingSlots === 0 || isReachedLimit
+
+                          return (
+                            <div
+                              key={std.id}
+                              onClick={() => {
+                                if (!isDisabled || isSelected) {
+                                  handleToggleSelectStudent(std.id, remainingSlots)
+                                }
+                              }}
+                              className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                                isSelected
+                                  ? "bg-brand-50/90 dark:bg-brand-950/60 border-brand-500 shadow-xs"
+                                  : isDisabled
+                                  ? "bg-slate-100/50 dark:bg-slate-900/20 border-slate-200/50 dark:border-slate-800/40 opacity-50 cursor-not-allowed"
+                                  : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800/80 hover:border-brand-300 dark:hover:border-brand-700 cursor-pointer"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                {/* Custom Checkbox */}
+                                <div
+                                  className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-all ${
+                                    isSelected
+                                      ? "bg-brand-500 border-brand-500 text-white"
+                                      : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950"
+                                  }`}
+                                >
+                                  {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                                </div>
+
+                                {/* Avatar & Info */}
+                                <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">
+                                  {std.full_name?.charAt(0) || "น"}
+                                </div>
+
+                                <div>
+                                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                    <span>{std.full_name}</span>
+                                    {isSelected && (
+                                      <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                                        เลือกแล้ว
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-400 font-en flex items-center gap-2">
+                                    <span>รหัส {std.student_id || "-"}</span>
+                                    <span>·</span>
+                                    <span>ห้อง ม.{std.room || "-"}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="text-right">
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                  ม.{std.room || "-"}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+
+                    {/* Modal Footer Actions */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {selectedStudentIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudentIds([])}
+                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline cursor-pointer"
+                          >
+                            ล้างการเลือกทั้งหมด
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setShowAddMember(false)}
+                          className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="button"
+                          disabled={selectedStudentIds.length === 0 || isSubmittingAddMembers}
+                          onClick={handleAddSelectedMembers}
+                          className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-md shadow-brand-500/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          {isSubmittingAddMembers ? "กำลังเพิ่มสมาชิก..." : `เพิ่มสมาชิกที่เลือก (${selectedStudentIds.length} คน)`}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                )}
-
-                {/* Section 2: Search By Name/ID across grade */}
-                <div className="space-y-2 pt-2">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    หรือค้นหาด้วยชื่อ / รหัสนักเรียน
-                  </label>
-
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => handleSearchStudents(e.target.value)}
-                    placeholder="พิมพ์ชื่อ หรือ รหัสนักเรียน..."
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500"
-                  />
-
-                  {searchQuery.trim() && (
-                    <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 bg-slate-50/50 dark:bg-slate-950/50">
-                      {isSearching && (
-                        <div className="py-4 text-center text-xs text-slate-400">กำลังค้นหา...</div>
-                      )}
-                      {!isSearching && searchResults.length === 0 && (
-                        <div className="py-4 text-center text-xs text-slate-400">
-                          ไม่พบนักเรียนที่ตรงกับคำค้นหา หรือนักเรียนมีกลุ่มแล้ว
-                        </div>
-                      )}
-                      {searchResults.map((std) => (
-                        <div key={std.id} className="py-2 px-2.5 flex items-center justify-between hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-colors">
-                          <div>
-                            <div className="text-xs font-bold text-slate-900 dark:text-white">{std.full_name}</div>
-                            <div className="text-[11px] text-slate-400 font-en">รหัส {std.student_id || "-"} · ห้อง ม.{std.room || "-"}</div>
-                          </div>
-                          <button
-                            onClick={() => handleAddMember(std.id)}
-                            className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1 shadow-xs"
-                          >
-                            <Plus className="w-3 h-3" /> เพิ่ม
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddMember(false)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
-                  >
-                    ปิดหน้าต่าง
-                  </button>
-                </div>
-              </div>
+                )
+              })()}
             </Modal>
 
             {/* Modal: Submit Work */}

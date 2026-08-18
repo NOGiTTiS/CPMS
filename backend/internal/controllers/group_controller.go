@@ -367,7 +367,7 @@ func (gc *GroupController) SearchAvailableStudents(c *fiber.Ctx) error {
 	}
 
 	var students []models.User
-	if err := query.Order("room ASC, student_id ASC").Limit(30).Find(&students).Error; err != nil {
+	if err := query.Order("room ASC, student_id ASC, full_name ASC").Limit(300).Find(&students).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to search students"})
 	}
 
@@ -394,7 +394,8 @@ func (gc *GroupController) ListTeachers(c *fiber.Ctx) error {
 }
 
 type AddMemberRequest struct {
-	UserID uuid.UUID `json:"user_id"`
+	UserID  uuid.UUID   `json:"user_id"`
+	UserIDs []uuid.UUID `json:"user_ids"`
 }
 
 func (gc *GroupController) AddMember(c *fiber.Ctx) error {
@@ -419,20 +420,41 @@ func (gc *GroupController) AddMember(c *fiber.Ctx) error {
 	}
 
 	var req AddMemberRequest
-	if err := c.BodyParser(&req); err != nil || req.UserID == uuid.Nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Valid user_id is required"})
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request body"})
 	}
 
-	// Verify target user exists and is a student
-	var targetUser models.User
-	if err := gc.db.Where("id = ? AND role = ? AND is_active = true", req.UserID, models.RoleStudent).First(&targetUser).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Student not found or inactive"})
+	// Normalize user IDs list
+	targetUserIDs := req.UserIDs
+	if len(targetUserIDs) == 0 && req.UserID != uuid.Nil {
+		targetUserIDs = []uuid.UUID{req.UserID}
 	}
 
-	// Check if target user already belongs to another group
-	var existingMember models.GroupMember
-	if err := gc.db.Where("user_id = ?", req.UserID).First(&existingMember).Error; err == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Student is already in another group"})
+	// Deduplicate IDs
+	uniqueMap := make(map[uuid.UUID]bool)
+	var finalUserIDs []uuid.UUID
+	for _, uid := range targetUserIDs {
+		if uid != uuid.Nil && !uniqueMap[uid] {
+			uniqueMap[uid] = true
+			finalUserIDs = append(finalUserIDs, uid)
+		}
+	}
+
+	if len(finalUserIDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "At least one valid user_id is required"})
+	}
+
+	// Verify all target users exist and are active students
+	var targetUsers []models.User
+	if err := gc.db.Where("id IN (?) AND role = ? AND is_active = true", finalUserIDs, models.RoleStudent).Find(&targetUsers).Error; err != nil || len(targetUsers) != len(finalUserIDs) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Some selected students were not found or inactive"})
+	}
+
+	// Check if any target user already belongs to any group
+	var existingMemberCount int64
+	gc.db.Model(&models.GroupMember{}).Where("user_id IN (?)", finalUserIDs).Count(&existingMemberCount)
+	if existingMemberCount > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "One or more selected students already belong to a group"})
 	}
 
 	// Check max members per group limit
@@ -446,31 +468,40 @@ func (gc *GroupController) AddMember(c *fiber.Ctx) error {
 
 	var currentMemberCount int64
 	gc.db.Model(&models.GroupMember{}).Where("group_id = ?", groupID).Count(&currentMemberCount)
-	if int(currentMemberCount) >= maxMembers {
+	if int(currentMemberCount)+len(finalUserIDs) > maxMembers {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
-			"message": fmt.Sprintf("Cannot add member: maximum group size (%d members) reached", maxMembers),
+			"message": fmt.Sprintf("Cannot add %d members: maximum group size (%d members) would be exceeded (current: %d)", len(finalUserIDs), maxMembers, currentMemberCount),
 		})
 	}
 
-	newMember := models.GroupMember{
-		GroupID:  groupID,
-		UserID:   req.UserID,
-		IsLeader: false,
+	// Insert members in transaction
+	tx := gc.db.Begin()
+	for _, uid := range finalUserIDs {
+		newMember := models.GroupMember{
+			GroupID:  groupID,
+			UserID:   uid,
+			IsLeader: false,
+		}
+		if err := tx.Create(&newMember).Error; err != nil {
+			tx.Rollback()
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to add members"})
+		}
 	}
-
-	if err := gc.db.Create(&newMember).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to add member"})
-	}
+	tx.Commit()
 
 	var group models.ProjectGroup
 	gc.db.Preload("Members.User").Where("id = ?", groupID).First(&group)
 
-	services.LogActivity(gc.db, &currentUserID, string(currentUserRole), "ADD_GROUP_MEMBER", fmt.Sprintf("Added student %s to group %s", targetUser.FullName, group.ProjectNameTH), c.IP())
+	var names []string
+	for _, u := range targetUsers {
+		names = append(names, u.FullName)
+	}
+	services.LogActivity(gc.db, &currentUserID, string(currentUserRole), "ADD_GROUP_MEMBER", fmt.Sprintf("Added %d student(s) (%s) to group %s", len(targetUsers), strings.Join(names, ", "), group.ProjectNameTH), c.IP())
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": "Member added successfully",
+		"message": fmt.Sprintf("Added %d member(s) successfully", len(finalUserIDs)),
 		"data":    group,
 	})
 }

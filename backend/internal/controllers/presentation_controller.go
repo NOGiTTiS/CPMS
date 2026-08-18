@@ -261,8 +261,15 @@ func (pc *PresentationController) CancelBooking(c *fiber.Ctx) error {
 // ----------------------------------------------------
 
 func (pc *PresentationController) ListCriteria(c *fiber.Ctx) error {
+	activeOnly := c.Query("active_only") == "true"
+
+	query := pc.db.Order("criteria_order ASC, created_at ASC")
+	if activeOnly {
+		query = query.Where("is_active = ?", true)
+	}
+
 	var criteria []models.PresentationCriteria
-	if err := pc.db.Order("criteria_order ASC").Find(&criteria).Error; err != nil {
+	if err := query.Find(&criteria).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to fetch criteria"})
 	}
 
@@ -277,10 +284,13 @@ type CreateCriteriaRequest struct {
 	Description   *string `json:"description"`
 	MaxScore      float64 `json:"max_score"`
 	CriteriaOrder int     `json:"criteria_order"`
-	IsActive      bool    `json:"is_active"`
+	IsActive      *bool   `json:"is_active"`
 }
 
 func (pc *PresentationController) CreateCriteria(c *fiber.Ctx) error {
+	userID, _ := c.Locals("userID").(uuid.UUID)
+	userRole, _ := c.Locals("userRole").(models.UserRole)
+
 	var req CreateCriteriaRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request body"})
@@ -295,17 +305,30 @@ func (pc *PresentationController) CreateCriteria(c *fiber.Ctx) error {
 		req.MaxScore = 10.0
 	}
 
+	if req.CriteriaOrder <= 0 {
+		var maxOrder int
+		pc.db.Model(&models.PresentationCriteria{}).Select("COALESCE(MAX(criteria_order), 0)").Scan(&maxOrder)
+		req.CriteriaOrder = maxOrder + 1
+	}
+
+	isActive := true
+	if req.IsActive != nil {
+		isActive = *req.IsActive
+	}
+
 	criterion := models.PresentationCriteria{
 		Label:         req.Label,
 		Description:   req.Description,
 		MaxScore:      req.MaxScore,
 		CriteriaOrder: req.CriteriaOrder,
-		IsActive:      req.IsActive,
+		IsActive:      isActive,
 	}
 
 	if err := pc.db.Create(&criterion).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to create criteria"})
 	}
+
+	services.LogActivity(pc.db, &userID, string(userRole), "CREATE_RUBRIC_CRITERIA", fmt.Sprintf("Created rubric criterion '%s' (Max score: %.1f)", criterion.Label, criterion.MaxScore), c.IP())
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"success": true,
@@ -314,6 +337,9 @@ func (pc *PresentationController) CreateCriteria(c *fiber.Ctx) error {
 }
 
 func (pc *PresentationController) UpdateCriteria(c *fiber.Ctx) error {
+	userID, _ := c.Locals("userID").(uuid.UUID)
+	userRole, _ := c.Locals("userRole").(models.UserRole)
+
 	idParam := c.Params("id")
 	criteriaID, err := uuid.Parse(idParam)
 	if err != nil {
@@ -331,30 +357,102 @@ func (pc *PresentationController) UpdateCriteria(c *fiber.Ctx) error {
 	}
 
 	delete(req, "id")
+
+	// Validate label if passed
+	if val, ok := req["label"]; ok {
+		if labelStr, ok := val.(string); ok {
+			labelStr = strings.TrimSpace(labelStr)
+			if labelStr == "" {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Label cannot be empty"})
+			}
+			req["label"] = labelStr
+		}
+	}
+
+	// Validate max_score if passed
+	if val, ok := req["max_score"]; ok {
+		if scoreFloat, ok := val.(float64); ok && scoreFloat <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Max score must be greater than 0"})
+		}
+	}
+
 	if err := pc.db.Model(&criterion).Updates(req).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to update criteria"})
 	}
 
+	// Refetch to get updated object
+	pc.db.Where("id = ?", criteriaID).First(&criterion)
+
+	services.LogActivity(pc.db, &userID, string(userRole), "UPDATE_RUBRIC_CRITERIA", fmt.Sprintf("Updated rubric criterion '%s' (ID: %s)", criterion.Label, criterion.ID), c.IP())
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Criteria updated successfully",
+		"data":    criterion,
 	})
 }
 
 func (pc *PresentationController) DeleteCriteria(c *fiber.Ctx) error {
+	userID, _ := c.Locals("userID").(uuid.UUID)
+	userRole, _ := c.Locals("userRole").(models.UserRole)
+
 	idParam := c.Params("id")
 	criteriaID, err := uuid.Parse(idParam)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid ID"})
 	}
 
+	var criterion models.PresentationCriteria
+	if err := pc.db.Where("id = ?", criteriaID).First(&criterion).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Criteria not found"})
+	}
+
 	if err := pc.db.Where("id = ?", criteriaID).Delete(&models.PresentationCriteria{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to delete criteria"})
 	}
 
+	services.LogActivity(pc.db, &userID, string(userRole), "DELETE_RUBRIC_CRITERIA", fmt.Sprintf("Deleted rubric criterion '%s' (ID: %s)", criterion.Label, criterion.ID), c.IP())
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Criteria deleted successfully",
+	})
+}
+
+type ReorderCriteriaItem struct {
+	ID            uuid.UUID `json:"id"`
+	CriteriaOrder int       `json:"criteria_order"`
+}
+
+func (pc *PresentationController) ReorderCriteria(c *fiber.Ctx) error {
+	userID, _ := c.Locals("userID").(uuid.UUID)
+	userRole, _ := c.Locals("userRole").(models.UserRole)
+
+	var items []ReorderCriteriaItem
+	if err := c.BodyParser(&items); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request payload"})
+	}
+
+	err := pc.db.Transaction(func(tx *gorm.DB) error {
+		for _, item := range items {
+			if err := tx.Model(&models.PresentationCriteria{}).
+				Where("id = ?", item.ID).
+				Update("criteria_order", item.CriteriaOrder).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to reorder criteria"})
+	}
+
+	services.LogActivity(pc.db, &userID, string(userRole), "REORDER_RUBRIC_CRITERIA", fmt.Sprintf("Reordered %d rubric criteria", len(items)), c.IP())
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Criteria reordered successfully",
 	})
 }
 
