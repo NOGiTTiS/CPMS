@@ -74,6 +74,7 @@ func (tc *TeacherController) GetPendingSubmissionsQueue(c *fiber.Ctx) error {
 	if academicYear == "" {
 		academicYear = database.GetCurrentAcademicYear(tc.db)
 	}
+	room := strings.TrimSpace(c.Query("room"))
 
 	query := tc.db.Model(&models.Submission{}).
 		Preload("Group.Members.User").
@@ -99,6 +100,10 @@ func (tc *TeacherController) GetPendingSubmissionsQueue(c *fiber.Ctx) error {
 
 		// Show submissions where group room is in assigned rooms OR teacher is group advisor
 		query = query.Where("project_groups.room IN (?) OR project_groups.advisor_id = ?", rooms, teacherID)
+	}
+
+	if room != "" {
+		query = query.Where("project_groups.room = ?", room)
 	}
 
 	var pending []models.Submission
