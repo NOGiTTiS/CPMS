@@ -22,6 +22,7 @@ type User struct {
 	PasswordHash string    `gorm:"type:varchar(255);not null" json:"-"`
 	FullName     string    `gorm:"type:varchar(150);not null" json:"full_name"`
 	Role         UserRole  `gorm:"type:varchar(50);not null" json:"role"`
+	AcademicYear *string   `gorm:"type:varchar(10);index" json:"academic_year,omitempty"`
 	IsActive     bool      `gorm:"type:boolean;not null;default:true" json:"is_active"`
 	CreatedAt    time.Time `gorm:"type:timestamptz;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"type:timestamptz;default:CURRENT_TIMESTAMP" json:"updated_at"`

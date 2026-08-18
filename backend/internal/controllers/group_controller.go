@@ -354,13 +354,32 @@ func (gc *GroupController) UpdateGroup(c *fiber.Ctx) error {
 func (gc *GroupController) SearchAvailableStudents(c *fiber.Ctx) error {
 	search := strings.TrimSpace(c.Query("search"))
 	room := strings.TrimSpace(c.Query("room"))
+	academicYear := strings.TrimSpace(c.Query("academic_year"))
 
-	// Find user_ids that already have a group
+	if academicYear == "" {
+		var yearSetting models.SystemSetting
+		if err := gc.db.Where("key = ?", "academic_year").First(&yearSetting).Error; err == nil && yearSetting.Value != "" {
+			academicYear = yearSetting.Value
+		}
+	}
+
+	// Find user_ids that already have a group in this academic year
 	var groupedUserIDs []uuid.UUID
-	gc.db.Model(&models.GroupMember{}).Pluck("user_id", &groupedUserIDs)
+	if academicYear != "" {
+		gc.db.Table("group_members").
+			Joins("JOIN project_groups ON project_groups.id = group_members.group_id").
+			Where("project_groups.academic_year = ?", academicYear).
+			Pluck("group_members.user_id", &groupedUserIDs)
+	} else {
+		gc.db.Model(&models.GroupMember{}).Pluck("user_id", &groupedUserIDs)
+	}
 
 	query := gc.db.Model(&models.User{}).
 		Where("role = ? AND is_active = true", models.RoleStudent)
+
+	if academicYear != "" {
+		query = query.Where("academic_year = ? OR academic_year IS NULL", academicYear)
+	}
 
 	if len(groupedUserIDs) > 0 {
 		query = query.Where("id NOT IN (?)", groupedUserIDs)

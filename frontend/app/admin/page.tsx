@@ -74,55 +74,59 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // User Filter & Search & Pagination
-  const [userSearch, setUserSearch] = useState("");
-  const [userRoleFilter, setUserRoleFilter] = useState<string>("");
-  const [userRoomFilter, setUserRoomFilter] = useState<string>("");
-  const [userStatusFilter, setUserStatusFilter] = useState<string>("");
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(25);
+  const [userSearch, setUserSearch] = useState("")
+  const [userRoleFilter, setUserRoleFilter] = useState<string>("")
+  const [userRoomFilter, setUserRoomFilter] = useState<string>("")
+  const [userYearFilter, setUserYearFilter] = useState<string>("")
+  const [userStatusFilter, setUserStatusFilter] = useState<string>("")
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [pageSize, setPageSize] = useState<number>(25)
 
   // Group Filter & Search & Pagination
-  const [groupSearch, setGroupSearch] = useState("");
-  const [groupRoomFilter, setGroupRoomFilter] = useState<string>("");
-  const [groupYearFilter, setGroupYearFilter] = useState<string>("");
-  const [groupCurrentPage, setGroupCurrentPage] = useState<number>(1);
-  const [groupPageSize, setGroupPageSize] = useState<number>(25);
+  const [groupSearch, setGroupSearch] = useState("")
+  const [groupRoomFilter, setGroupRoomFilter] = useState<string>("")
+  const [groupYearFilter, setGroupYearFilter] = useState<string>("")
+  const [groupCurrentPage, setGroupCurrentPage] = useState<number>(1)
+  const [groupPageSize, setGroupPageSize] = useState<number>(25)
 
   // Modals
-  const [showCreateUser, setShowCreateUser] = useState(false);
-  const [showImportCSV, setShowImportCSV] = useState(false);
-  const [showResetPassword, setShowResetPassword] = useState<User | null>(null);
-  const [showEditUser, setShowEditUser] = useState<User | null>(null);
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [showEditGroup, setShowEditGroup] = useState<ProjectGroup | null>(null);
-  const [showManageMembers, setShowManageMembers] = useState<ProjectGroup | null>(null);
-  const [showCreateYearModal, setShowCreateYearModal] = useState(false);
-  const [showEditYearModal, setShowEditYearModal] = useState<AcademicYear | null>(null);
-  const [showStepModal, setShowStepModal] = useState<ProjectStep | null | "CREATE">(null);
-  const [showSlotModal, setShowSlotModal] = useState(false);
-  const [showCriteriaModal, setShowCriteriaModal] = useState<PresentationCriteria | null | "CREATE">(null);
+  const [showCreateUser, setShowCreateUser] = useState(false)
+  const [showImportCSV, setShowImportCSV] = useState(false)
+  const [showResetPassword, setShowResetPassword] = useState<User | null>(null)
+  const [showEditUser, setShowEditUser] = useState<User | null>(null)
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [showEditGroup, setShowEditGroup] = useState<ProjectGroup | null>(null)
+  const [showManageMembers, setShowManageMembers] = useState<ProjectGroup | null>(null)
+  const [showCreateYearModal, setShowCreateYearModal] = useState(false)
+  const [showEditYearModal, setShowEditYearModal] = useState<AcademicYear | null>(null)
+  const [showStepModal, setShowStepModal] = useState<ProjectStep | null | "CREATE">(null)
+  const [showSlotModal, setShowSlotModal] = useState(false)
+  const [showCriteriaModal, setShowCriteriaModal] = useState<PresentationCriteria | null | "CREATE">(null)
 
   // User Form State (Create)
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [studentId, setStudentId] = useState("");
-  const [userRole, setUserRole] = useState<Role>("STUDENT");
-  const [userRoom, setUserRoom] = useState("");
-  const [isSubmittingUser, setIsSubmittingUser] = useState(false);
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [studentId, setStudentId] = useState("")
+  const [userRole, setUserRole] = useState<Role>("STUDENT")
+  const [userRoom, setUserRoom] = useState("")
+  const [userAcademicYear, setUserAcademicYear] = useState("")
+  const [isSubmittingUser, setIsSubmittingUser] = useState(false)
 
   // User Form State (Edit)
-  const [editFullName, setEditFullName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editRole, setEditRole] = useState<Role>("STUDENT");
-  const [editStudentId, setEditStudentId] = useState("");
-  const [editRoom, setEditRoom] = useState("");
-  const [editIsActive, setEditIsActive] = useState(true);
-  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [editFullName, setEditFullName] = useState("")
+  const [editEmail, setEditEmail] = useState("")
+  const [editRole, setEditRole] = useState<Role>("STUDENT")
+  const [editStudentId, setEditStudentId] = useState("")
+  const [editRoom, setEditRoom] = useState("")
+  const [editUserAcademicYear, setEditUserAcademicYear] = useState("")
+  const [editIsActive, setEditIsActive] = useState(true)
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false)
 
   // CSV Import State
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [isImportingCSV, setIsImportingCSV] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [importAcademicYear, setImportAcademicYear] = useState("")
+  const [isImportingCSV, setIsImportingCSV] = useState(false)
 
   // Reset Password State
   const [newResetPassword, setNewResetPassword] = useState("");
@@ -269,8 +273,8 @@ export default function AdminPage() {
 
   // 1. Create User
   const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmittingUser(true);
+    e.preventDefault()
+    setIsSubmittingUser(true)
     try {
       const res = await api.post<{ success: boolean; data?: User; user?: User }>("/admin/users", {
         full_name: fullName.trim(),
@@ -279,47 +283,50 @@ export default function AdminPage() {
         role: userRole,
         student_id: studentId.trim() || undefined,
         room: userRoom.trim() || undefined,
-      });
+        academic_year: userRole === "STUDENT" ? (userAcademicYear.trim() || undefined) : undefined,
+      })
 
-      const newUser = res?.data || res?.user;
+      const newUser = res?.data || res?.user
       if (newUser) {
-        setUsers((prev) => [newUser, ...prev]);
+        setUsers((prev) => [newUser, ...prev])
         if (newUser.role === "TEACHER") {
-          setTeachers((prev) => [newUser, ...prev]);
+          setTeachers((prev) => [newUser, ...prev])
         }
       }
 
-      toast.success("สร้างบัญชีผู้ใช้สำเร็จ");
-      setShowCreateUser(false);
-      setFullName("");
-      setEmail("");
-      setPassword("");
-      setStudentId("");
-      setUserRoom("");
-      fetchAllAdminData();
+      toast.success("สร้างบัญชีผู้ใช้สำเร็จ")
+      setShowCreateUser(false)
+      setFullName("")
+      setEmail("")
+      setPassword("")
+      setStudentId("")
+      setUserRoom("")
+      setUserAcademicYear("")
+      fetchAllAdminData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "สร้างผู้ใช้ไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "สร้างผู้ใช้ไม่สำเร็จ"
+      toast.error(errorMsg)
     } finally {
-      setIsSubmittingUser(false);
+      setIsSubmittingUser(false)
     }
-  };
+  }
 
   // 1.1 Open & Save Edit User
   const handleOpenEditUser = (u: User) => {
-    setShowEditUser(u);
-    setEditFullName(u.full_name || "");
-    setEditEmail(u.email || "");
-    setEditRole(u.role || "STUDENT");
-    setEditStudentId(u.student_id || "");
-    setEditRoom(u.room || "");
-    setEditIsActive(u.is_active !== undefined ? u.is_active : true);
-  };
+    setShowEditUser(u)
+    setEditFullName(u.full_name || "")
+    setEditEmail(u.email || "")
+    setEditRole(u.role || "STUDENT")
+    setEditStudentId(u.student_id || "")
+    setEditRoom(u.room || "")
+    setEditUserAcademicYear(u.academic_year || "")
+    setEditIsActive(u.is_active !== undefined ? u.is_active : true)
+  }
 
   const handleSaveEditUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showEditUser) return;
-    setIsSubmittingEdit(true);
+    e.preventDefault()
+    if (!showEditUser) return
+    setIsSubmittingEdit(true)
     try {
       const res = await api.put<{ success: boolean; data: User; user?: User }>(`/admin/users/${showEditUser.id}`, {
         full_name: editFullName.trim(),
@@ -327,126 +334,144 @@ export default function AdminPage() {
         role: editRole,
         student_id: editStudentId.trim() || undefined,
         room: editRoom.trim() || undefined,
+        academic_year: editRole === "STUDENT" ? (editUserAcademicYear.trim() || undefined) : undefined,
         is_active: editIsActive,
-      });
+      })
 
-      const updated = res?.data || res?.user;
+      const updated = res?.data || res?.user
       if (updated) {
-        setUsers((prev) => prev.map((u) => (u.id === showEditUser.id ? { ...u, ...updated } : u)));
+        setUsers((prev) => prev.map((u) => (u.id === showEditUser.id ? { ...u, ...updated } : u)))
         if (updated.role === "TEACHER") {
           setTeachers((prev) => {
-            const exists = prev.some((t) => t.id === updated.id);
-            return exists ? prev.map((t) => (t.id === updated.id ? updated : t)) : [updated, ...prev];
-          });
+            const exists = prev.some((t) => t.id === updated.id)
+            return exists ? prev.map((t) => (t.id === updated.id ? updated : t)) : [updated, ...prev]
+          })
         } else {
-          setTeachers((prev) => prev.filter((t) => t.id !== updated.id));
+          setTeachers((prev) => prev.filter((t) => t.id !== updated.id))
         }
       }
 
-      toast.success("อัปเดตข้อมูลผู้ใช้สำเร็จ");
-      setShowEditUser(null);
-      fetchAllAdminData();
+      toast.success("อัปเดตข้อมูลผู้ใช้สำเร็จ")
+      setShowEditUser(null)
+      fetchAllAdminData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "อัปเดตผู้ใช้ไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "อัปเดตผู้ใช้ไม่สำเร็จ"
+      toast.error(errorMsg)
     } finally {
-      setIsSubmittingEdit(false);
+      setIsSubmittingEdit(false)
     }
-  };
+  }
 
   // 1.2 CSV Import Template Downloader
   const handleDownloadCSVTemplate = () => {
-    const headers = "full_name,email,password,role,student_id,room\n";
+    const headers = "full_name,email,password,role,student_id,room,academic_year\n"
     const sampleRows = [
-      "นายสมชาย ใจดี,somchai@tunorth.ac.th,Password123,STUDENT,50101,6.1",
-      "นางสาวสมหญิง จริงใจ,somying@tunorth.ac.th,Password123,STUDENT,50102,6.1",
-      "ครูสมศักดิ์ รักเรียน,somsak@tunorth.ac.th,Password123,TEACHER,,",
-      "ผู้ดูแลระบบ ทดสอบ,admin2@tunorth.ac.th,Password123,ADMIN,,",
-    ].join("\n");
+      "นายสมชาย ใจดี,somchai@tunorth.ac.th,Password123,STUDENT,50101,6.1,2568",
+      "นางสาวสมหญิง จริงใจ,somying@tunorth.ac.th,Password123,STUDENT,50102,6.1,2568",
+      "ครูสมศักดิ์ รักเรียน,somsak@tunorth.ac.th,Password123,TEACHER,,,",
+      "ผู้ดูแลระบบ ทดสอบ,admin2@tunorth.ac.th,Password123,ADMIN,,,",
+    ].join("\n")
 
-    const blob = new Blob(["\ufeff" + headers + sampleRows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "user_import_template.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success("ดาวน์โหลดไฟล์แม่แบบ CSV สำหรับนำเข้าผู้ใช้สำเร็จ");
-  };
+    const blob = new Blob(["\ufeff" + headers + sampleRows], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", "user_import_template.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast.success("ดาวน์โหลดไฟล์แม่แบบ CSV สำหรับนำเข้าผู้ใช้สำเร็จ")
+  }
 
   // 2. Delete User
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("คุณต้องการลบบัญชีผู้ใช้นี้ใช่หรือไม่?")) return;
+    if (!confirm("คุณต้องการลบบัญชีผู้ใช้นี้ใช่หรือไม่?")) return
     try {
-      await api.delete(`/admin/users/${userId}`);
-      toast.success("ลบผู้ใช้สำเร็จ");
-      fetchAllAdminData();
+      await api.delete(`/admin/users/${userId}`)
+      toast.success("ลบผู้ใช้สำเร็จ")
+      fetchAllAdminData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "ลบผู้ใช้ไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "ลบผู้ใช้ไม่สำเร็จ"
+      toast.error(errorMsg)
     }
-  };
+  }
 
   // 3. Reset Password
   const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showResetPassword) return;
+    e.preventDefault()
+    if (!showResetPassword) return
 
-    setIsResetting(true);
+    setIsResetting(true)
     try {
       await api.post(`/admin/users/${showResetPassword.id}/reset-password`, {
         new_password: newResetPassword,
-      });
-      toast.success("รีเซ็ตรหัสผ่านสำเร็จ");
-      setShowResetPassword(null);
-      setNewResetPassword("");
+      })
+      toast.success("รีเซ็ตรหัสผ่านสำเร็จ")
+      setShowResetPassword(null)
+      setNewResetPassword("")
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "รีเซ็ตรหัสผ่านไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "รีเซ็ตรหัสผ่านไม่สำเร็จ"
+      toast.error(errorMsg)
     } finally {
-      setIsResetting(false);
+      setIsResetting(false)
     }
-  };
+  }
 
   // 4. CSV Import
   const handleImportCSV = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!csvFile) return;
+    e.preventDefault()
+    if (!csvFile) return
 
-    setIsImportingCSV(true);
+    setIsImportingCSV(true)
     try {
-      const formData = new FormData();
-      formData.append("file", csvFile);
-      const res = await api.uploadFormData<{ message: string }>("/admin/users/import-csv", formData);
-      toast.success(res.message || "นำเข้าข้อมูลจาก CSV สำเร็จ");
-      setShowImportCSV(false);
-      setCsvFile(null);
-      fetchAllAdminData();
+      const formData = new FormData()
+      formData.append("file", csvFile)
+      if (importAcademicYear.trim()) {
+        formData.append("academic_year", importAcademicYear.trim())
+      }
+      const res = await api.uploadFormData<{ message: string }>("/admin/users/import-csv", formData)
+      toast.success(res.message || "นำเข้าข้อมูลจาก CSV สำเร็จ")
+      setShowImportCSV(false)
+      setCsvFile(null)
+      fetchAllAdminData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "นำเข้า CSV ไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "นำเข้า CSV ไม่สำเร็จ"
+      toast.error(errorMsg)
     } finally {
-      setIsImportingCSV(false);
+      setIsImportingCSV(false)
     }
-  };
+  }
+
+  // 5. Archive Old Year Students
+  const handleArchiveStudents = async (y: AcademicYear) => {
+    if (!confirm(`คุณต้องการปิดการใช้งานบัญชีนักเรียนปีการศึกษา ${y.year} ทั้งหมดใช่หรือไม่?\n(การกระทำนี้จะเปลี่ยนสถานะนักเรียนเป็น Inactive เพื่อไม่ให้แสดงในการค้นหาหรือปะปนกับนักเรียนปีใหม่ แต่ผลงานและข้อมูลโครงงานเดิมจะยังคงอยู่ครบถ้วน)`)) return
+    try {
+      const res = await api.post<{ message: string }>(`/admin/academic-years/${y.id}/archive-students`, {})
+      toast.success(res.message || `ปิดการใช้งานนักเรียนปี ${y.year} สำเร็จ`)
+      fetchAllAdminData()
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "ปิดการใช้งานนักเรียนไม่สำเร็จ"
+      toast.error(errorMsg)
+    }
+  }
 
   // ==================== GROUP CRUD HANDLERS ====================
   // Search available students (students without a group)
-  const fetchAvailableStudents = async (room?: string, search?: string) => {
-    setIsSearchingStudents(true);
+  const fetchAvailableStudents = async (room?: string, search?: string, academicYear?: string) => {
+    setIsSearchingStudents(true)
     try {
-      const qRoom = room ? `&room=${encodeURIComponent(room)}` : "";
-      const qSearch = search ? `&search=${encodeURIComponent(search)}` : "";
-      const res = await api.get<{ data: User[] }>(`/groups/search-students?${qRoom}${qSearch}`);
-      setAvailableStudents(res.data || []);
+      const qRoom = room ? `&room=${encodeURIComponent(room)}` : ""
+      const qSearch = search ? `&search=${encodeURIComponent(search)}` : ""
+      const qYear = academicYear ? `&academic_year=${encodeURIComponent(academicYear)}` : ""
+      const res = await api.get<{ data: User[] }>(`/groups/search-students?${qRoom}${qSearch}${qYear}`)
+      setAvailableStudents(res.data || [])
     } catch {
-      setAvailableStudents([]);
+      setAvailableStudents([])
     } finally {
-      setIsSearchingStudents(false);
+      setIsSearchingStudents(false)
     }
-  };
+  }
 
   // 1. Create Group
   const handleCreateGroup = async (e: React.FormEvent) => {
@@ -917,28 +942,39 @@ export default function AdminPage() {
   const availableRooms = Array.from(
     new Set(users.map((u) => u.room).filter((r): r is string => Boolean(r)))
   ).sort((a, b) => {
-    const numA = parseFloat(a);
-    const numB = parseFloat(b);
-    return isNaN(numA) || isNaN(numB) ? a.localeCompare(b) : numA - numB;
-  });
+    const numA = parseFloat(a)
+    const numB = parseFloat(b)
+    return isNaN(numA) || isNaN(numB) ? a.localeCompare(b) : numA - numB
+  })
+
+  // Dynamically extract available academic years for users
+  const availableUserYears = Array.from(
+    new Set([
+      ...academicYears.map((y) => y.year),
+      ...users.map((u) => u.academic_year),
+    ].filter((y): y is string => Boolean(y)))
+  ).sort((a, b) => b.localeCompare(a))
 
   const filteredUsers = users.filter((u) => {
-    const query = userSearch.toLowerCase().trim();
+    const query = userSearch.toLowerCase().trim()
     const matchSearch =
       !query ||
       u.full_name?.toLowerCase().includes(query) ||
       u.email?.toLowerCase().includes(query) ||
-      (u.student_id && u.student_id.toLowerCase().includes(query));
-    const matchRole = userRoleFilter ? u.role === userRoleFilter : true;
-    const matchRoom = userRoomFilter ? u.room === userRoomFilter : true;
+      (u.student_id && u.student_id.toLowerCase().includes(query))
+    const matchRole = userRoleFilter ? u.role === userRoleFilter : true
+    const matchRoom = userRoomFilter ? u.room === userRoomFilter : true
+    const matchYear = userYearFilter
+      ? (u.academic_year === userYearFilter || u.role !== "STUDENT")
+      : true
     const matchStatus =
       userStatusFilter === "ACTIVE"
         ? u.is_active === true
         : userStatusFilter === "INACTIVE"
         ? u.is_active === false
-        : true;
-    return matchSearch && matchRole && matchRoom && matchStatus;
-  });
+        : true
+    return matchSearch && matchRole && matchRoom && matchYear && matchStatus
+  })
 
   // Calculate pagination
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
@@ -1137,7 +1173,7 @@ export default function AdminPage() {
 
                 {/* Filters & Search Toolbar */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                     {/* Search Input */}
                     <div className="relative md:col-span-2">
                       <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -1145,8 +1181,8 @@ export default function AdminPage() {
                         type="text"
                         value={userSearch}
                         onChange={(e) => {
-                          setUserSearch(e.target.value);
-                          setCurrentPage(1);
+                          setUserSearch(e.target.value)
+                          setCurrentPage(1)
                         }}
                         placeholder="ค้นหาตามชื่อ, อีเมล หรือรหัสนักเรียน..."
                         className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none focus:border-brand-500"
@@ -1158,8 +1194,8 @@ export default function AdminPage() {
                       <select
                         value={userRoleFilter}
                         onChange={(e) => {
-                          setUserRoleFilter(e.target.value);
-                          setCurrentPage(1);
+                          setUserRoleFilter(e.target.value)
+                          setCurrentPage(1)
                         }}
                         className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none focus:border-brand-500 text-slate-700 dark:text-slate-200"
                       >
@@ -1175,8 +1211,8 @@ export default function AdminPage() {
                       <select
                         value={userRoomFilter}
                         onChange={(e) => {
-                          setUserRoomFilter(e.target.value);
-                          setCurrentPage(1);
+                          setUserRoomFilter(e.target.value)
+                          setCurrentPage(1)
                         }}
                         className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none focus:border-brand-500 text-slate-700 dark:text-slate-200"
                       >
@@ -1184,6 +1220,25 @@ export default function AdminPage() {
                         {availableRooms.map((rm) => (
                           <option key={rm} value={rm}>
                             ห้อง ม.{rm}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Academic Year Filter */}
+                    <div>
+                      <select
+                        value={userYearFilter}
+                        onChange={(e) => {
+                          setUserYearFilter(e.target.value)
+                          setCurrentPage(1)
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none focus:border-brand-500 text-slate-700 dark:text-slate-200 font-bold"
+                      >
+                        <option value="">ทุกปีการศึกษา (All Years)</option>
+                        {availableUserYears.map((yr) => (
+                          <option key={yr} value={yr}>
+                            ปีการศึกษา {yr}
                           </option>
                         ))}
                       </select>
@@ -1200,8 +1255,8 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setUserStatusFilter("");
-                            setCurrentPage(1);
+                            setUserStatusFilter("")
+                            setCurrentPage(1)
                           }}
                           className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
                             userStatusFilter === ""
@@ -1214,8 +1269,8 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setUserStatusFilter("ACTIVE");
-                            setCurrentPage(1);
+                            setUserStatusFilter("ACTIVE")
+                            setCurrentPage(1)
                           }}
                           className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
                             userStatusFilter === "ACTIVE"
@@ -1228,8 +1283,8 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setUserStatusFilter("INACTIVE");
-                            setCurrentPage(1);
+                            setUserStatusFilter("INACTIVE")
+                            setCurrentPage(1)
                           }}
                           className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
                             userStatusFilter === "INACTIVE"
@@ -1247,8 +1302,8 @@ export default function AdminPage() {
                       <select
                         value={pageSize}
                         onChange={(e) => {
-                          setPageSize(Number(e.target.value));
-                          setCurrentPage(1);
+                          setPageSize(Number(e.target.value))
+                          setCurrentPage(1)
                         }}
                         className="px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs outline-none focus:border-brand-500 font-bold text-slate-700 dark:text-slate-200"
                       >
@@ -1263,6 +1318,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Table */}
+                {/* Table */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
@@ -1271,7 +1327,7 @@ export default function AdminPage() {
                           <th className="p-4">ชื่อ-นามสกุล</th>
                           <th className="p-4">อีเมล / รหัสนักเรียน</th>
                           <th className="p-4">บทบาท</th>
-                          <th className="p-4">ห้อง</th>
+                          <th className="p-4">ห้อง / ปีการศึกษา</th>
                           <th className="p-4 text-center">สถานะ</th>
                           <th className="p-4 text-right">การจัดการ</th>
                         </tr>
@@ -1313,7 +1369,14 @@ export default function AdminPage() {
                                 </span>
                               </td>
                               <td className="p-4 text-slate-600 dark:text-slate-400">
-                                {u.room ? `ม.${u.room}` : "-"}
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span>{u.room ? `ม.${u.room}` : "-"}</span>
+                                  {u.role === "STUDENT" && u.academic_year && (
+                                    <span className="text-[10px] font-bold text-brand-600 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/80 px-1.5 py-0.5 rounded-md border border-brand-200/60 dark:border-brand-800/60">
+                                      ปี {u.academic_year}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="p-4 text-center">
                                 {u.is_active !== false ? (
@@ -1336,8 +1399,8 @@ export default function AdminPage() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    setShowResetPassword(u);
-                                    setNewResetPassword("");
+                                    setShowResetPassword(u)
+                                    setNewResetPassword("")
                                   }}
                                   className="text-amber-600 hover:text-amber-700 dark:text-amber-400 p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
                                   title="รีเซ็ตรหัสผ่าน"
@@ -1828,18 +1891,19 @@ export default function AdminPage() {
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold">
                         <tr>
-                          <th className="p-4 w-36">ปีการศึกษา</th>
-                          <th className="p-4 w-32">ภาคเรียน</th>
-                          <th className="p-4 min-w-[200px]">สถานะ</th>
-                          <th className="p-4 w-36">กลุ่มโครงงาน</th>
-                          <th className="p-4 min-w-[160px]">วันที่สร้าง</th>
-                          <th className="p-4 text-right min-w-[180px]">การจัดการ</th>
+                          <th className="p-4 w-32">ปีการศึกษา</th>
+                          <th className="p-4 w-28">ภาคเรียน</th>
+                          <th className="p-4 min-w-[160px]">สถานะ</th>
+                          <th className="p-4 w-28">กลุ่มโครงงาน</th>
+                          <th className="p-4 w-28">นักเรียน</th>
+                          <th className="p-4 min-w-[140px]">วันที่สร้าง</th>
+                          <th className="p-4 text-right min-w-[240px]">การจัดการ</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {academicYears.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-slate-400">
+                            <td colSpan={7} className="p-8 text-center text-slate-400">
                               ไม่พบข้อมูลปีการศึกษาในระบบ กรุณากด "เพิ่มปีการศึกษาใหม่"
                             </td>
                           </tr>
@@ -1882,11 +1946,17 @@ export default function AdminPage() {
                                 </span>{" "}
                                 <span className="text-slate-400 text-[11px]">กลุ่ม</span>
                               </td>
+                              <td className="p-4">
+                                <span className="font-bold text-brand-600 dark:text-brand-400 font-en">
+                                  {y.student_count ?? 0}
+                                </span>{" "}
+                                <span className="text-slate-400 text-[11px]">คน</span>
+                              </td>
                               <td className="p-4 text-slate-500 text-[11px]">
                                 {y.created_at ? formatDate(y.created_at) : "-"}
                               </td>
                               <td className="p-4 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
+                                <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                   {!y.is_current && (
                                     <button
                                       onClick={() => handleSetCurrentYear(y.id, y.year, y.term)}
@@ -1895,6 +1965,16 @@ export default function AdminPage() {
                                     >
                                       <Crown className="w-3.5 h-3.5 text-amber-500" />
                                       <span>ตั้งเป็นปีปัจจุบัน</span>
+                                    </button>
+                                  )}
+                                  {!y.is_current && (y.student_count ?? 0) > 0 && (
+                                    <button
+                                      onClick={() => handleArchiveStudents(y)}
+                                      className="text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-slate-700"
+                                      title="ปิดการใช้งานบัญชีนักเรียนปีนี้ทั้งหมด"
+                                    >
+                                      <UserMinus className="w-3.5 h-3.5 text-slate-500" />
+                                      <span>ปิดบัญชีนักเรียน</span>
                                     </button>
                                   )}
                                   <button
@@ -2498,14 +2578,27 @@ export default function AdminPage() {
                 </div>
 
                 {userRole === "STUDENT" && (
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold">รหัสนักเรียน</label>
-                    <input
-                      type="text"
-                      value={studentId}
-                      onChange={(e) => setStudentId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-en"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold">รหัสนักเรียน</label>
+                      <input
+                        type="text"
+                        value={studentId}
+                        onChange={(e) => setStudentId(e.target.value)}
+                        placeholder="เช่น 50101"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-en"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold">ปีการศึกษา</label>
+                      <input
+                        type="text"
+                        value={userAcademicYear}
+                        onChange={(e) => setUserAcademicYear(e.target.value)}
+                        placeholder="เช่น 2568"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-en"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -2588,15 +2681,27 @@ export default function AdminPage() {
                   </div>
 
                   {editRole === "STUDENT" && (
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold">รหัสนักเรียน</label>
-                      <input
-                        type="text"
-                        value={editStudentId}
-                        onChange={(e) => setEditStudentId(e.target.value)}
-                        placeholder="เช่น 50101"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-en"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold">รหัสนักเรียน</label>
+                        <input
+                          type="text"
+                          value={editStudentId}
+                          onChange={(e) => setEditStudentId(e.target.value)}
+                          placeholder="เช่น 50101"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-en"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold">ปีการศึกษา</label>
+                        <input
+                          type="text"
+                          value={editUserAcademicYear}
+                          onChange={(e) => setEditUserAcademicYear(e.target.value)}
+                          placeholder="เช่น 2568"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-en"
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -2671,11 +2776,29 @@ export default function AdminPage() {
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Header ที่กำหนด: <code className="font-mono text-brand-600 dark:text-brand-400">full_name, email, password, role, student_id, room</code>
+                    Header ที่กำหนด: <code className="font-mono text-brand-600 dark:text-brand-400">full_name, email, password, role, student_id, room, academic_year</code>
                   </p>
                 </div>
 
                 <form onSubmit={handleImportCSV} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      ปีการศึกษาเป้าหมาย (สำหรับบัญชีนักเรียน)
+                    </label>
+                    <select
+                      value={importAcademicYear}
+                      onChange={(e) => setImportAcademicYear(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200"
+                    >
+                      <option value="">ใช้ปีการศึกษาปัจจุบันของระบบ</option>
+                      {availableYears.map((yr) => (
+                        <option key={yr} value={yr}>
+                          ปีการศึกษา {yr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       เลือกไฟล์ .csv ที่เตรียมไว้

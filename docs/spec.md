@@ -63,6 +63,7 @@ erDiagram
         string full_name
         string role "ADMIN | TEACHER | STUDENT"
         string room "e.g. 6.1, 6.2 (Student class)"
+        string academic_year "e.g. 2568 (Student cohort)"
         boolean is_active
         timestamp created_at
         timestamp updated_at

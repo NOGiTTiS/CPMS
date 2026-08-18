@@ -88,7 +88,7 @@ D:\TUNorth
 
 ## 📊 4. โครงสร้างฐานข้อมูล (Database Entities & Relationships)
 
-1. **`users`**: `id` (UUID PK), `student_id` (Unique, Nullable), `room`, `email` (Unique), `password_hash`, `full_name`, `role` (`ADMIN`, `TEACHER`, `STUDENT`), `is_active`
+1. **`users`**: `id` (UUID PK), `student_id` (Unique, Nullable), `room`, `academic_year` (Nullable, Indexed), `email` (Unique), `password_hash`, `full_name`, `role` (`ADMIN`, `TEACHER`, `STUDENT`), `is_active`
 2. **`teacher_assignments`**: `id` (UUID PK), `teacher_id` (FK -> `users`), `room` (เช่น `6.1`, `6.2`)
 3. **`project_groups`**: `id` (UUID PK), `project_name_th`, `project_name_en`, `advisor_id` (FK -> `users`, Nullable), `advisor_name`, `academic_year`, `room`
 4. **`group_members`**: `id` (UUID PK), `group_id` (FK -> `project_groups`), `user_id` (FK -> `users`), `is_leader`, `joined_at`

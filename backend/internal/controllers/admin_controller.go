@@ -34,6 +34,7 @@ func NewAdminController(db *gorm.DB, cfg *config.Config, tg *services.TelegramSe
 func (ac *AdminController) ListUsers(c *fiber.Ctx) error {
 	role := c.Query("role")
 	room := c.Query("room")
+	academicYear := c.Query("academic_year")
 	search := strings.TrimSpace(c.Query("search"))
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "1000"))
@@ -53,6 +54,9 @@ func (ac *AdminController) ListUsers(c *fiber.Ctx) error {
 	}
 	if room != "" {
 		query = query.Where("room = ?", room)
+	}
+	if academicYear != "" && academicYear != "ALL" {
+		query = query.Where("(academic_year = ? OR role != 'STUDENT')", academicYear)
 	}
 	if search != "" {
 		pattern := "%" + strings.ToLower(search) + "%"
@@ -78,12 +82,13 @@ func (ac *AdminController) ListUsers(c *fiber.Ctx) error {
 }
 
 type CreateUserRequest struct {
-	FullName  string          `json:"full_name"`
-	Email     string          `json:"email"`
-	Password  string          `json:"password"`
-	Role      models.UserRole `json:"role"`
-	StudentID *string         `json:"student_id"`
-	Room      *string         `json:"room"`
+	FullName     string          `json:"full_name"`
+	Email        string          `json:"email"`
+	Password     string          `json:"password"`
+	Role         models.UserRole `json:"role"`
+	StudentID    *string         `json:"student_id"`
+	Room         *string         `json:"room"`
+	AcademicYear *string         `json:"academic_year"`
 }
 
 func (ac *AdminController) CreateUser(c *fiber.Ctx) error {
@@ -115,6 +120,21 @@ func (ac *AdminController) CreateUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to hash password"})
 	}
 
+	var academicYear *string
+	if req.AcademicYear != nil && strings.TrimSpace(*req.AcademicYear) != "" {
+		ay := strings.TrimSpace(*req.AcademicYear)
+		academicYear = &ay
+	} else if req.Role == models.RoleStudent {
+		var yearSetting models.SystemSetting
+		if err := ac.db.Where("key = ?", "academic_year").First(&yearSetting).Error; err == nil && yearSetting.Value != "" {
+			ay := yearSetting.Value
+			academicYear = &ay
+		} else {
+			ay := "2568"
+			academicYear = &ay
+		}
+	}
+
 	user := models.User{
 		FullName:     req.FullName,
 		Email:        req.Email,
@@ -122,6 +142,7 @@ func (ac *AdminController) CreateUser(c *fiber.Ctx) error {
 		Role:         req.Role,
 		StudentID:    req.StudentID,
 		Room:         req.Room,
+		AcademicYear: academicYear,
 		IsActive:     true,
 	}
 
@@ -290,6 +311,16 @@ func (ac *AdminController) ImportUsersCSV(c *fiber.Ctx) error {
 		}
 	}
 
+	defaultAcademicYear := strings.TrimSpace(c.FormValue("academic_year"))
+	if defaultAcademicYear == "" {
+		var yearSetting models.SystemSetting
+		if err := ac.db.Where("key = ?", "academic_year").First(&yearSetting).Error; err == nil && yearSetting.Value != "" {
+			defaultAcademicYear = yearSetting.Value
+		} else {
+			defaultAcademicYear = "2568"
+		}
+	}
+
 	successCount := 0
 	skippedCount := 0
 	var errorLog []string
@@ -320,6 +351,14 @@ func (ac *AdminController) ImportUsersCSV(c *fiber.Ctx) error {
 			rVal := strings.TrimSpace(row[idx])
 			if rVal != "" {
 				room = &rVal
+			}
+		}
+
+		var rowAcademicYear *string
+		if idx, exists := colMap["academic_year"]; exists && idx < len(row) {
+			ayVal := strings.TrimSpace(row[idx])
+			if ayVal != "" {
+				rowAcademicYear = &ayVal
 			}
 		}
 
@@ -355,6 +394,13 @@ func (ac *AdminController) ImportUsersCSV(c *fiber.Ctx) error {
 			role = models.RoleTeacher
 		}
 
+		var userAY *string
+		if rowAcademicYear != nil {
+			userAY = rowAcademicYear
+		} else if role == models.RoleStudent {
+			userAY = &defaultAcademicYear
+		}
+
 		newUser := models.User{
 			FullName:     fullName,
 			Email:        email,
@@ -362,6 +408,7 @@ func (ac *AdminController) ImportUsersCSV(c *fiber.Ctx) error {
 			Role:         role,
 			StudentID:    studentID,
 			Room:         room,
+			AcademicYear: userAY,
 			IsActive:     true,
 		}
 
@@ -451,11 +498,15 @@ func (ac *AdminController) ListAcademicYears(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to fetch academic years"})
 	}
 
-	// Count groups for each academic year
+	// Count groups & students for each academic year
 	for i := range years {
-		var cnt int64
-		ac.db.Model(&models.ProjectGroup{}).Where("academic_year = ?", years[i].Year).Count(&cnt)
-		years[i].GroupCount = cnt
+		var groupCnt int64
+		ac.db.Model(&models.ProjectGroup{}).Where("academic_year = ?", years[i].Year).Count(&groupCnt)
+		years[i].GroupCount = groupCnt
+
+		var studentCnt int64
+		ac.db.Model(&models.User{}).Where("role = ? AND academic_year = ?", models.RoleStudent, years[i].Year).Count(&studentCnt)
+		years[i].StudentCount = studentCnt
 	}
 
 	return c.JSON(fiber.Map{
@@ -644,6 +695,32 @@ func (ac *AdminController) DeleteAcademicYear(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "ลบปีการศึกษาสำเร็จ",
+	})
+}
+
+func (ac *AdminController) ArchiveAcademicYearStudents(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var yearObj models.AcademicYear
+	if err := ac.db.Where("id = ?", id).First(&yearObj).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Academic year not found"})
+	}
+
+	// Deactivate active students from this academic year
+	res := ac.db.Model(&models.User{}).
+		Where("role = ? AND academic_year = ? AND is_active = true", models.RoleStudent, yearObj.Year).
+		Update("is_active", false)
+
+	if res.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to archive students"})
+	}
+
+	adminID, _ := c.Locals("userID").(uuid.UUID)
+	services.LogActivity(ac.db, &adminID, "ADMIN", "ARCHIVE_STUDENTS", fmt.Sprintf("Archived %d students for academic year %s", res.RowsAffected, yearObj.Year), c.IP())
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": fmt.Sprintf("ปิดการใช้งาน/จัดเก็บข้อมูลนักเรียนปีการศึกษา %s จำนวน %d บัญชีเรียบร้อยแล้ว", yearObj.Year, res.RowsAffected),
+		"count":   res.RowsAffected,
 	})
 }
 

@@ -150,6 +150,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	adminGroup.Post("/academic-years", adminCtrl.CreateAcademicYear)
 	adminGroup.Put("/academic-years/:id", adminCtrl.UpdateAcademicYear)
 	adminGroup.Post("/academic-years/:id/set-current", adminCtrl.SetCurrentAcademicYear)
+	adminGroup.Post("/academic-years/:id/archive-students", adminCtrl.ArchiveAcademicYearStudents)
 	adminGroup.Delete("/academic-years/:id", adminCtrl.DeleteAcademicYear)
 	adminGroup.Get("/settings", adminCtrl.GetSettings)
 	adminGroup.Put("/settings", adminCtrl.UpdateSettings)

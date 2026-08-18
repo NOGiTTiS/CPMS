@@ -105,10 +105,15 @@ func AutoMigrate(db *gorm.DB) error {
 	var yr models.AcademicYear
 	if err := db.Where("year = ?", "2568").First(&yr).Error; err != nil {
 		db.Create(&models.AcademicYear{
-			Year:     "2568",
-			IsActive: true,
+			Year:      "2568",
+			Term:      "2",
+			IsCurrent: true,
+			IsActive:  true,
 		})
 	}
+
+	// Backfill existing students with academic_year = 2568 if null
+	db.Model(&models.User{}).Where("role = ? AND (academic_year IS NULL OR academic_year = '')", models.RoleStudent).Update("academic_year", "2568")
 
 	// Seed Default Users
 	seedUsers(db)
@@ -171,6 +176,7 @@ func seedUsers(db *gorm.DB) {
 			PasswordHash: hash,
 			Role:         models.RoleStudent,
 			Room:         strPtr("6.1"),
+			AcademicYear: strPtr("2568"),
 			IsActive:     true,
 		})
 		log.Println("Seeded Student 1 user: student1@tunorth.ac.th (50101)")
@@ -187,6 +193,7 @@ func seedUsers(db *gorm.DB) {
 			PasswordHash: hash,
 			Role:         models.RoleStudent,
 			Room:         strPtr("6.2"),
+			AcademicYear: strPtr("2568"),
 			IsActive:     true,
 		})
 		log.Println("Seeded Student 2 user: student2@tunorth.ac.th (50201)")

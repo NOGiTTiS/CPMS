@@ -333,14 +333,17 @@ export default function StudentPage() {
     }
   };
 
-  // Fetch available students by room
+  // Fetch available students by room & academic year
   const fetchAvailableStudentsForRoom = async (room: string) => {
     setIsLoadingAvailableStudents(true)
     try {
-      const url = room && room !== "ALL"
-        ? `/groups/search-students?room=${encodeURIComponent(room)}`
-        : "/groups/search-students"
-      const res = await api.get<{ data: User[] }>(url)
+      const year = group?.academic_year || user?.academic_year || academicYear || "2568"
+      const params = new URLSearchParams()
+      if (room && room !== "ALL") params.append("room", room)
+      if (year) params.append("academic_year", year)
+
+      const queryString = params.toString() ? `?${params.toString()}` : ""
+      const res = await api.get<{ data: User[] }>(`/groups/search-students${queryString}`)
       setAvailableStudents(res.data || [])
     } catch {
       setAvailableStudents([])
