@@ -310,13 +310,14 @@ erDiagram
     3. ระบบคำนวณและแสดงจำนวนกลุ่มโครงงาน (`group_count`) ในแต่ละปีแบบ real-time
     4. ระบบตรวจสอบความปลอดภัย (บล็อกการลบปีปัจจุบัน หรือปีที่มีกลุ่มโครงงานสังกัดอยู่)
     5. เชื่อมต่อตัวเลือกปีการศึกษาแบบ Dynamic ไปยังหน้าต่างและตัวกรองของนักเรียน ครู และแอดมิน
-* **Feature 5.2: การตั้งค่าระบบส่วนกลาง (Centralized Admin System Settings)**
-  * **Description**: แอดมินบริหารจัดการการตั้งค่าระบบครอบคลุม 5 หมวดหมู่อย่างครบวงจร:
+* **Feature 5.2: การตั้งค่าระบบส่วนกลาง (Centralized Admin System Settings & Release Info)**
+  * **Description**: แอดมินบริหารจัดการการตั้งค่าระบบครอบคลุม 6 หมวดหมู่อย่างครบวงจร:
     1. **ทั่วไป (General)**: ชื่อระบบ, ชื่อสถาบัน, คำอธิบายระบบ, สมาชิกสูงสุดต่อกลุ่ม (`max_members_per_group`), ลิขสิทธิ์ (`site_copyright`)
-    2. **รูปภาพ (Images & Branding)**: Site Logo & Favicon รองรับการอัปโหลดไฟล์รูปภาพ (PNG, JPG, SVG, WebP, ICO <= 5MB) และใส่ URL พร้อม Live Preview
+    2. **รูปภาพ (Images & Branding)**: Site Logo & Favicon รองรับการอัปโหลดไฟล์รูปภาพ (PNG, JPG, SVG, WebP, ICO <= 5MB) ผ่าน `POST /api/v1/admin/settings/upload-image` และใส่ URL พร้อม Live Preview และซิงค์การแสดงผลบน Navbar, Dynamic `<head>` Favicon, และหน้า Login ทันที
     3. **รูปแบบการส่งงาน (Submission Mode)**: เลือกระหว่าง **Sequential (ตามลำดับ)** (ต้องผ่านงานก่อนหน้าจึงจะส่งขั้นถัดไปได้ พร้อมระบบล็อกอัตโนมัติ) และ **Open (อิสระ)** (ส่งงานขั้นตอนใดก่อนก็ได้)
     4. **การให้คะแนน (Grading Visibility)**: เปิด/ปิดการแสดงผลคะแนนแก่นักเรียน (`show_scores_to_students`: on/off) ซึ่งจะ Mask คะแนนขั้นตอนและ Rubric ในมุมมองนักเรียน
-    5. **การแจ้งเตือน (Notifications & Telegram Bot)**: สวิตช์ Master เปิด/ปิดการแจ้งเตือน, กำหนด Bot Token, Chat ID และปุ่มทดสอบส่งข้อความแจ้งเตือน
+    5. **การแจ้งเตือน (Notifications & Telegram Bot)**: สวิตช์ Master เปิด/ปิดการแจ้งเตือน, กำหนด Bot Token พร้อมปุ่ม Toggle แสดง/ซ่อนรหัสผ่าน, Chat ID และปุ่มทดสอบส่งข้อความแจ้งเตือน
+    6. **ข้อมูลเวอร์ชันและการเชื่อมต่อเครือข่าย (System Version & Network Deployment)**: แสดงข้อมูลรุ่นเวอร์ชัน `v1.0 (Production Release)`, ป้ายสถานะ `พร้อมใช้งานบน LAN และ Cloudflare`, ที่อยู่เครือข่ายภายในโรงเรียน (`lan_url`: `http://cpms.local`) และที่อยู่ออนไลน์ภายนอก (`cloudflare_url`: `https://cpms.tn.ac.th`)
   * **Acceptance Criteria**:
     1. บันทึกและมีผลต่อการทำงานของระบบทันทีแบบ Real-time โดยไม่ต้อง Restart Container
     2. ระบบตรวจสอบสิทธิ์ความปลอดภัย และบันทึก Audit Logs ทุกครั้งที่มีการอัปเดตหรืออัปโหลดรูปภาพ
@@ -351,12 +352,12 @@ erDiagram
 - [x] สร้าง GORM Models ทั้งหมดตาม Schema ในข้อ 2 (Users, Groups, Steps, Submissions, Presentation, Scores, Settings, Logs, AcademicYears)
 - [x] สร้างระบบ Authentication, JWT Generation, Password Hashing, และ RBAC Middleware (`AdminGuard`, `TeacherGuard`, `StudentGuard`)
 - [x] พัฒนา Controller & Routes:
-  - [x] Auth Controller (Login, Profile, Change Password, Refresh)
-  - [x] Project Group Controller (Create, Update, Delete/Dissolve, Add/Remove Members, Search Available Students, Teacher List, Transfer Leader)
-  - [x] Step & Submission Controller (Step CRUD, File/Link Uploads <=20MB, Revision History, Review & Grading)
+  - [x] Auth Controller (Login ด้วย Student ID/Email, Profile, Change Password, Refresh)
+  - [x] Project Group Controller (Create, Update, Delete/Dissolve, Add/Remove Members, Search Available Students, Teacher List, Transfer Leader 👑)
+  - [x] Step & Submission Controller (Step CRUD, File/Link Uploads <=20MB, Revision History, Review & Grading, Sequential Lock Validator, Score Masking)
   - [x] Presentation Controller (Slot Management, Booking, Rubric Criteria CRUD, Multi-Evaluator Scoring, Score CSV Export)
   - [x] Teacher Controller (Pending Submissions Queue, Class Progress Matrix, Grade Sheet CSV Export)
-  - [x] Admin Controller (User CRUD + CSV Import, Teacher-Room Assignment, Academic Years CRUD & Set-Current, System Settings, Activity Logs)
+  - [x] Admin Controller (User CRUD + CSV Import, Teacher-Room Assignment, Academic Years CRUD & 1-Click Set Current, System Settings 6 Sections, Image Upload API, Activity Logs)
 - [x] พัฒนา Telegram Notification Service แบบ Asynchronous (Goroutine)
 - [x] ติดตั้งและตั้งค่า Air สำหรับ Live Reload (`.air.toml`)
 - [x] สร้าง Dockerfile สำหรับ Backend (`golang:1.26-alpine` Multi-stage build)
@@ -367,24 +368,28 @@ erDiagram
 - [x] ติดตั้ง Next.js 16 App Router ด้วย **Bun** (`bun create next-app . --typescript --tailwind --app`)
 - [x] ติดตั้ง UI Components (Shadcn/ui, Lucide Icons, Sonner Toast, Zustand, clsx, tailwind-merge) ด้วย **Bun**
 - [x] ตั้งค่า Fonts Google **Prompt & Inter** และธีมสีระบบ (Primary `#5f06c4`, Adaptive Light/Dark Mode)
-- [x] สร้าง API Client และ State Management ด้วย Zustand (Auth Store, UI Store, Filter Store)
-- [x] พัฒนาหน้าจอ Layout และ Shared Components:
-  - [x] Navigation Bar, Sidebar, Theme Toggle, User Dropdown, Toast Notifications, Reusable Modal Component (`modal.tsx` with ESC & Backdrop dismiss)
+- [x] สร้าง API Client และ Helper `api.getFileUrl()` สำหรับ Resolve รูปภาพข้าม Port
+- [x] สร้าง State Management ด้วย Zustand (Auth Store, UI Store, Filter Store)
+- [x] พัฒนา Layout และ Shared Components:
+  - [x] Navigation Bar (Dynamic Logo, Dynamic System Name, Version Badge `v1.0`)
+  - [x] Sidebar, Theme Toggle, User Dropdown, Toast Notifications
+  - [x] Dynamic Favicon & Title Component (`dynamic-branding.tsx`)
+  - [x] Reusable Modal Component (`modal.tsx` with ESC & Backdrop dismiss)
 - [x] พัฒนาหน้าจอระบบย่อย:
-  - [x] `/(auth)/login`: หน้ายืนยันตัวตนรองรับ Student ID / Email
-  - [x] `/(dashboard)/student`: หน้าข้อมูลกลุ่มโครงงาน, การแก้ไขข้อมูลกลุ่ม, ไทม์ไลน์ขั้นตอนส่งงาน, ป๊อปอัปอัปโหลดไฟล์/ลิงก์, หน้าจองรอบนำเสนอ, ผลคะแนน
+  - [x] `/(auth)/login`: หน้ายืนยันตัวตนรองรับ Student ID / Email พร้อม Dynamic Logo มุมซ้ายบน และ Footer จาก System Settings
+  - [x] `/(dashboard)/student`: หน้าข้อมูลกลุ่มโครงงาน, การแก้ไขข้อมูลกลุ่ม, ไทม์ไลน์ขั้นตอนส่งงานพร้อมระบบล็อกตามลำดับ, ป๊อปอัปส่งไฟล์/ลิงก์, หน้าจองรอบนำเสนอ, ผลคะแนนพร้อมระบบซ่อนคะแนน
   - [x] `/(dashboard)/teacher`: หน้ารายการตรวจงานรอตรวจ, ตาราง Progress Matrix ของห้องตนเอง, โมดอลตรวจงาน/ให้คะแนน, หน้ากรรมการประเมิน Rubric, ปุ่ม Export ใบคะแนน CSV
-  - [x] `/(dashboard)/admin`: หน้า Dashboard ภาพรวม, หน้าจัดการผู้ใช้ (Filter, Pagination, CSV Template, CSV Import, Password Reset), หน้าจัดการกลุ่มโครงงาน (แต่งตั้งหัวหน้า, จัดการสมาชิก), หน้าจัดการปีการศึกษา (CRUD & 1-Click Set Current), หน้ามอบหมายห้องเรียนครู, หน้าจัดการขั้นตอนงาน, หน้าจัดการรอบและเกณฑ์ Rubric, หน้าตั้งค่าระบบ, หน้ารายการ Logs
+  - [x] `/(dashboard)/admin`: หน้า Dashboard ภาพรวม, จัดการผู้ใช้ (Filter, Pagination, CSV Template, CSV Import, Password Reset), จัดการกลุ่มโครงงาน (แต่งตั้งหัวหน้า, จัดการสมาชิก), จัดการปีการศึกษา (CRUD & 1-Click Set Current), มอบหมายห้องเรียนครู, กำหนดขั้นตอนงาน, จัดการรอบและเกณฑ์ Rubric, ตั้งค่าระบบ 6 หมวดหมู่ (ทั่วไป, รูปภาพ Logo/Favicon, Submission Mode, Score Visibility, Telegram Bot, Version & LAN/Cloudflare Deployment), หน้ารายการ Logs
 - [x] สร้าง Dockerfile สำหรับ Frontend โดยใช้ `oven/bun:1-alpine` Multi-stage build
 
 ---
 
 ### 📌 Phase 4: การทดสอบความถูกต้อง การเชื่อมโยงระบบ และการส่งมอบ (Testing & Deployment)
-- [x] ทดสอบ Build Backend (`go build -o server.exe ./cmd/server`) สำเร็จเรียบร้อย
-- [x] ทดสอบ Build Frontend (`bun run build`) สำเร็จเรียบร้อย (0 Errors)
+- [x] ทดสอบ Build Backend (`go build -o server.exe ./cmd/server`) สำเร็จเรียบร้อย (0 Errors)
+- [x] ทดสอบ Build Frontend (`bun run build`) สำเร็จเรียบร้อย (0 TypeScript errors, 0 ESLint errors)
 - [x] ทดสอบ Data Migration นำเข้าข้อมูลเดิมจาก `backup_cpms_db.sql` และตรวจสอบความถูกต้องของข้อมูล
 - [x] ทดสอบ User Flow แบบ End-to-End ครบทั้ง 3 บทบาท (Admin, Teacher, Student)
 - [x] ตั้งค่า `.gitignore` ยกเว้น `old_system/`, build outputs, binaries และ environment files
 - [x] Push ซอร์สโค้ดและเอกสารทั้งหมดขึ้น GitHub Repository (`https://github.com/NOGiTTiS/CPMS.git`)
-- [x] จัดทำเอกสารสรุปผลการทำงาน (Walkthrough Document, Handover Summary) และคู่มือสเปกระบบ
+- [x] จัดทำเอกสารสรุปผลการทำงาน (Walkthrough Document, Handover Summary) และคู่มือสเปกระบบฉบับสมบูรณ์
 

@@ -183,24 +183,48 @@ function LoginForm() {
         </p>
       </div>
     </div>
-  );
+  )
 }
 
 export default function LoginPage() {
+  const [siteLogo, setSiteLogo] = useState("")
+  const [systemName, setSystemName] = useState("TU-North CPMS")
+  const [instituteName, setInstituteName] = useState("โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ")
+  const [siteCopyright, setSiteCopyright] = useState("© 2026 TU-North Computer Department")
+
+  useEffect(() => {
+    api.get<{ data?: Record<string, string> }>("/settings/public")
+      .then((res) => {
+        const d = res?.data || {}
+        if (d["site_logo"]) setSiteLogo(d["site_logo"])
+        if (d["system_name"]) setSystemName(d["system_name"])
+        if (d["institute_name"]) setInstituteName(d["institute_name"])
+        if (d["site_copyright"]) setSiteCopyright(d["site_copyright"])
+      })
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="min-h-screen flex flex-col justify-between bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       {/* Top Header */}
       <header className="px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-brand-500 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-md shadow-brand-500/30">
-            CPMS
-          </div>
+          {siteLogo ? (
+            <div className="w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-0.5 shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={api.getFileUrl(siteLogo)} alt="Site Logo" className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 bg-brand-500 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-md shadow-brand-500/30">
+              CPMS
+            </div>
+          )}
           <div>
             <h1 className="font-bold text-slate-900 dark:text-white text-base leading-tight">
-              TU-North CPMS
+              {systemName}
             </h1>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-en">
-              โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ
+              {instituteName}
             </p>
           </div>
         </div>
@@ -222,8 +246,8 @@ export default function LoginPage() {
 
       {/* Footer */}
       <footer className="py-4 text-center text-xs text-slate-400 dark:text-slate-600">
-        © 2568 TU-North CPMS · โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ
+        {siteCopyright}
       </footer>
     </div>
-  );
+  )
 }

@@ -98,14 +98,27 @@ D:\TUNorth
 8. **`presentation_bookings`**: `id` (UUID PK), `slot_id` (FK -> `presentation_slots`), `group_id` (FK -> `project_groups`), `booked_at`
 9. **`presentation_criteria`**: `id` (UUID PK), `label`, `description`, `max_score`, `criteria_order`, `is_active`
 10. **`presentation_scores`**: `id` (UUID PK), `booking_id` (FK -> `presentation_bookings`), `scorer_id` (FK -> `users`), `criteria_data` (JSONB), `total_score`, `comments`, `scored_at`
-11. **`system_settings`**: `key` (VARCHAR PK), `value` (TEXT), `updated_at`
+11. **`system_settings`**: `key` (VARCHAR PK), `value` (TEXT), `updated_at` (รวม 6 หมวดหมู่: General, Images & Branding, Submission Mode, Score Visibility, Telegram Bot, System Version & Network Deployment)
 12. **`announcements`**: `id` (UUID PK), `title`, `content`, `is_pinned`, `created_by` (FK -> `users`), `created_at`
 13. **`activity_logs`**: `id` (UUID PK), `user_id` (FK -> `users`), `user_role`, `action`, `description`, `ip_address`, `created_at`
 14. **`academic_years`**: `id` (UUID PK), `year`, `term`, `is_current`, `is_active`
 
 ---
 
-## 🚀 5. สถานะความคืบหน้าของโครงการ (Roadmap & Status)
+## 🎨 5. สถาปัตยกรรมอัตลักษณ์และการเชื่อมต่อ (Branding & Dynamic Ingress)
+
+1. **Dynamic Branding Architecture**:
+   - **Logo & Favicon Storage**: จัดเก็บบน Volume Disk (`UploadDir/branding/`) ผ่าน Endpoint `POST /api/v1/admin/settings/upload-image`
+   - **Cross-Port URL Resolution**: Helper `api.getFileUrl(pathOrUrl)` แปลง Relative Path เป็น URL ของ Backend Base (`http://localhost:8009` ใน Local หรือ Domain จริงใน Production)
+   - **Dynamic Favicon & Title Component**: `<DynamicBranding />` ใน `RootLayout` คอยดึง `/settings/public` และอัปเดต `<link rel="icon">`, `<link rel="shortcut icon">` และ `document.title` แบบ Real-time ผ่าน Event `branding-updated`
+   - **Unified Branding Display**: โลโก้, ชื่อระบบ และลิขสิทธิ์จะแสดงผลตรงกันทั้งบน **Navbar**, **หน้าต่างผู้ดูแลระบบ**, และ **หน้าเข้าสู่ระบบ (Login Page)**
+2. **Network & Deployment Ready**:
+   - **LAN Intranet**: ให้บริการผ่าน Nginx Port 8009 และ Virtual Host `http://cpms.local`
+   - **Cloudflare Tunnel**: ให้บริการผ่าน Ingress WAN `https://cpms.tn.ac.th`
+
+---
+
+## 🚀 6. สถานะความคืบหน้าของโครงการ (Roadmap & Status)
 
 - [x] **Phase 1: การเตรียมโครงสร้างพื้นฐานและฐานข้อมูล (Infrastructure, Docker & Database Setup)** *(Completed & Verified)*
   - [x] สร้างโครงสร้างโฟลเดอร์โปรเจกต์ `apps/cpms/backend`, `apps/cpms/frontend` และ `apps/cpms/docs`
@@ -120,26 +133,28 @@ D:\TUNorth
   - [x] สร้าง GORM Models ทั้งหมดตาม Schema (Users, Groups, Steps, Submissions, Presentation, Scores, Settings, Logs, AcademicYears)
   - [x] สร้างระบบ Authentication, JWT Generation, Password Hashing, และ RBAC Middleware (`AdminGuard`, `TeacherGuard`, `StudentGuard`)
   - [x] พัฒนา Controller & Routes (Auth, Groups, Steps/Submissions, Presentation, Teacher Matrix, Admin Management, Academic Years CRUD & 1-Click Set Current)
+  - [x] พัฒนาระบบ Admin Settings 6 หมวดหมู่ และ Image Upload API สำหรับ Site Logo / Favicon
   - [x] พัฒนา Telegram Notification Service แบบ Asynchronous (Goroutine)
   - [x] ติดตั้งและตั้งค่า Air สำหรับ Live Reload (`.air.toml`)
   - [x] สร้าง Dockerfile สำหรับ Backend (`golang:1.26-alpine` Multi-stage build)
 - [x] **Phase 3: การพัฒนา Frontend ด้วย Next.js 16 และ Bun (`apps/cpms/frontend`)** *(Completed & Verified)*
   - [x] ติดตั้ง Next.js 16 App Router ด้วย Bun + Shadcn/ui + Tailwind CSS + Lucide Icons + Sonner Toast
   - [x] ตั้งค่า Fonts Google Prompt & Inter และธีมสีระบบ (Primary `#5f06c4`)
-  - [x] สร้าง API Client และ State Management ด้วย Zustand (Auth Store, Theme)
-  - [x] พัฒนา Layout, Shared Components, และ Reusable Modal Component (`modal.tsx` รองรับ `ESC` key และ Backdrop dismiss)
+  - [x] สร้าง API Client และ Helper `api.getFileUrl()` สำหรับจัดการ URL รูปภาพ
+  - [x] สร้าง State Management ด้วย Zustand (Auth Store, Theme)
+  - [x] พัฒนา Layout, Shared Components, Dynamic Branding (`dynamic-branding.tsx`), และ Reusable Modal Component (`modal.tsx`)
   - [x] พัฒนาหน้าจอ Dashboard ครบทั้ง 3 บทบาท (Admin, Teacher, Student):
-    - [x] **Admin Portal**: User Management (Search, Filter, Pagination, CSV Template, CSV Import, Password Reset), Group Management (Leader transfer 👑, Member management), Academic Year Management (CRUD, 1-Click Set Current, Group counts), Teacher-Room Assignment, Steps & Rubric Criteria, Presentation Slots, System Settings, Activity Logs
+    - [x] **Admin Portal**: User Management (Search, Filter, Pagination, CSV Template, CSV Import, Password Reset), Group Management (Leader transfer 👑, Member management), Academic Year Management (CRUD, 1-Click Set Current, Group counts), Teacher-Room Assignment, Steps & Rubric Criteria, Presentation Slots, System Settings 6 หมวดหมู่พร้อม Banner & Quick Links, Activity Logs
     - [x] **Teacher Portal**: Review Queue, Classroom Progress Matrix, Review Submission Modal, Multi-Evaluator Rubric Modal, Export Grade Sheet & Score CSV
-    - [x] **Student Portal**: Group Overview, Student Edit Group (TH/EN, Advisor), Member Management, Sequential Milestone Submission, Presentation Defense Booking, Rubric Score Review
+    - [x] **Student Portal**: Group Overview, Student Edit Group (TH/EN, Advisor), Member Management, Sequential/Open Milestone Submission, Presentation Defense Booking, Rubric Score Review พร้อมการซ่อนคะแนน
   - [x] สร้าง Dockerfile สำหรับ Frontend (`oven/bun:1-alpine` Multi-stage build)
 - [x] **Phase 4: การทดสอบความถูกต้อง การเชื่อมโยงระบบ และการส่งมอบ (Testing & Deployment)** *(Completed & Verified)*
-  - [x] ทดสอบ Build Backend (`go build -o server.exe ./cmd/server`) ผ่านสมบูรณ์
+  - [x] ทดสอบ Build Backend (`go build -o server.exe ./cmd/server`) ผ่านสมบูรณ์ (0 Errors)
   - [x] ทดสอบ Build Frontend (`bun run build`) ผ่านสมบูรณ์ (0 Errors)
   - [x] ทดสอบ End-to-End User Flow ครบทั้ง 3 บทบาท
   - [x] ตั้งค่า `.gitignore` เพื่อยกเว้น `old_system/`, build outputs, binaries, และ `.env`
   - [x] Push ซอร์สโค้ดและเอกสารทั้งหมดขึ้น GitHub Repository (`https://github.com/NOGiTTiS/CPMS.git`)
-  - [x] จัดทำเอกสารสรุปผลและคู่มือการใช้งาน (`docs/spec.md`, `gemini.md`, `HANDOVER_SUMMARY.md`)
+  - [x] จัดทำเอกสารสรุปผลและคู่มือการใช้งาน (`docs/spec.md`, `gemini.md`, `HANDOVER_SUMMARY.md`, `walkthrough.md`)
 
 ---
 
