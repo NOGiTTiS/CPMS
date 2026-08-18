@@ -1,9 +1,9 @@
-"use client";
+"use client"
 
-import React, { useState, useEffect, useCallback } from "react";
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { useAuthStore } from "@/store/useAuthStore";
-import { api } from "@/lib/api";
+import React, { useState, useEffect, useCallback } from "react"
+import { DashboardLayout } from "@/components/layout/dashboard-layout"
+import { useAuthStore } from "@/store/useAuthStore"
+import { api } from "@/lib/api"
 import { 
   Submission, 
   MatrixRow, 
@@ -14,10 +14,10 @@ import {
   PresentationBooking,
   ProjectStep,
   AcademicYear 
-} from "@/types";
+} from "@/types"
 import { formatDate, formatScore, compareRooms } from "@/lib/utils"
-import { toast } from "sonner";
-import { Modal } from "@/components/ui/modal";
+import { toast } from "sonner"
+import { Modal } from "@/components/ui/modal"
 import { 
   ListOrdered, 
   TableProperties, 
@@ -36,13 +36,10 @@ import {
   Users, 
   UserCheck, 
   Download,
-  AlertCircle,
-  HelpCircle,
-  Pencil,
   CalendarRange,
   ChevronRight,
   ExternalLink
-} from "lucide-react";
+} from "lucide-react"
 
 export default function TeacherPage() {
   const { user } = useAuthStore();
@@ -70,111 +67,117 @@ export default function TeacherPage() {
   const [rubricComments, setRubricComments] = useState("");
   const [isSubmittingRubric, setIsSubmittingRubric] = useState(false);
 
-  // 1. Fetch initial teacher rooms and steps
+  // 1. Fetch initial teacher static data (years, steps, criteria)
   const fetchTeacherData = useCallback(async () => {
     try {
-      setIsLoading(true);
-      // Assigned rooms
-      const roomsRes = await api.get<{ data?: string[]; rooms?: string[] }>("/teacher/assigned-rooms")
-      const roomsList = (roomsRes?.data || roomsRes?.rooms || []).sort(compareRooms)
-      if (Array.isArray(roomsList)) {
-        setAssignedRooms(roomsList)
-        if (roomsList.length > 0 && !selectedRoom) {
-          setSelectedRoom(roomsList[0])
-        }
-      }
+      setIsLoading(true)
 
       // Steps
-      const stepsRes = await api.get<{ data?: ProjectStep[]; steps?: ProjectStep[] }>("/steps");
-      const stepsList = stepsRes?.data || stepsRes?.steps || [];
+      const stepsRes = await api.get<{ data?: ProjectStep[]; steps?: ProjectStep[] }>("/steps")
+      const stepsList = stepsRes?.data || stepsRes?.steps || []
       if (Array.isArray(stepsList)) {
-        setSteps(stepsList.filter((s) => s.is_active));
+        setSteps(stepsList.filter((s) => s.is_active))
       }
 
       // Criteria
-      const critRes = await api.get<{ data?: PresentationCriteria[]; criteria?: PresentationCriteria[] }>("/presentation/criteria");
-      const critList = critRes?.data || critRes?.criteria || [];
+      const critRes = await api.get<{ data?: PresentationCriteria[]; criteria?: PresentationCriteria[] }>("/presentation/criteria")
+      const critList = critRes?.data || critRes?.criteria || []
       if (Array.isArray(critList)) {
-        setCriteriaList(critList.filter((c) => c.is_active));
-      }
-
-      // Slots
-      const slotsRes = await api.get<{ data?: PresentationSlot[]; slots?: PresentationSlot[] }>("/presentation/slots");
-      const slotsList = slotsRes?.data || slotsRes?.slots || [];
-      if (Array.isArray(slotsList)) {
-        setSlots(slotsList);
+        setCriteriaList(critList.filter((c) => c.is_active))
       }
 
       // Active Academic Years
       try {
-        const yearsRes = await api.get<{ data?: AcademicYear[] }>("/academic-years/active");
-        const yearsList = yearsRes?.data || [];
+        const yearsRes = await api.get<{ data?: AcademicYear[] }>("/academic-years/active")
+        const yearsList = yearsRes?.data || []
         if (Array.isArray(yearsList) && yearsList.length > 0) {
-          setActiveYears(yearsList);
-          const curr = yearsList.find((y) => y.is_current);
+          setActiveYears(yearsList)
+          const curr = yearsList.find((y) => y.is_current)
           if (curr) {
-            setSelectedYear(curr.year);
+            setSelectedYear(curr.year)
           } else {
-            setSelectedYear(yearsList[0].year);
+            setSelectedYear(yearsList[0].year)
           }
         }
       } catch {
         // Fallback default
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ"
+      toast.error(errorMsg)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, [selectedRoom]);
+  }, [])
 
   useEffect(() => {
-    fetchTeacherData();
-  }, [fetchTeacherData]);
+    fetchTeacherData()
+  }, [fetchTeacherData])
 
-  // 2. Fetch Queue and Matrix whenever selectedRoom changes
+  // 2. Fetch Assigned Rooms, Queue, Matrix, and Slots whenever selectedYear or selectedRoom changes
   const fetchRoomSpecificData = useCallback(async () => {
     try {
+      const yr = selectedYear || "2568"
+
+      // Assigned rooms for selected year
+      const roomsRes = await api.get<{ data?: string[]; rooms?: string[] }>("/teacher/assigned-rooms", {
+        academic_year: yr
+      })
+      const roomsList = (roomsRes?.data || roomsRes?.rooms || []).sort(compareRooms)
+      if (Array.isArray(roomsList)) {
+        setAssignedRooms(roomsList)
+      }
+
+      // Slots for selected year
+      const slotsRes = await api.get<{ data?: PresentationSlot[]; slots?: PresentationSlot[] }>("/presentation/slots", {
+        academic_year: yr
+      })
+      const slotsList = slotsRes?.data || slotsRes?.slots || []
+      if (Array.isArray(slotsList)) {
+        setSlots(slotsList)
+      }
+
       // Pending Queue
       const queueRes = await api.get<{ data?: Submission[]; queue?: Submission[] }>("/teacher/queue", {
+        academic_year: yr,
         room: selectedRoom || undefined,
-      });
-      const queueList = queueRes?.data || queueRes?.queue || [];
+      })
+      const queueList = queueRes?.data || queueRes?.queue || []
       if (Array.isArray(queueList)) {
-        setQueue(queueList);
+        setQueue(queueList)
       }
 
       // Progress Matrix
       const matrixRes = await api.get<{
-        data?: { steps?: ProjectStep[]; groups?: ProjectGroup[] } | MatrixRow[];
-        matrix?: MatrixRow[];
+        data?: { steps?: ProjectStep[]; groups?: ProjectGroup[] } | MatrixRow[]
+        matrix?: MatrixRow[]
       }>("/teacher/progress-matrix", {
+        academic_year: yr,
         room: selectedRoom || undefined,
-      });
+      })
 
-      let matrixList: MatrixRow[] = [];
+      let matrixList: MatrixRow[] = []
       if (Array.isArray(matrixRes?.data)) {
-        matrixList = matrixRes.data;
+        matrixList = matrixRes.data
       } else if (matrixRes?.data && typeof matrixRes.data === "object" && "groups" in matrixRes.data && Array.isArray(matrixRes.data.groups)) {
-        const rawGroups = matrixRes.data.groups;
+        const rawGroups = matrixRes.data.groups
         if (matrixRes.data.steps && Array.isArray(matrixRes.data.steps) && matrixRes.data.steps.length > 0) {
-          setSteps(matrixRes.data.steps.filter((s) => s.is_active));
+          setSteps(matrixRes.data.steps.filter((s) => s.is_active))
         }
         matrixList = rawGroups.map((g) => {
-          const stepMap: Record<string, MatrixStepCell> = {};
-          let totalScore = 0;
+          const stepMap: Record<string, MatrixStepCell> = {}
+          let totalScore = 0
           g.submissions?.forEach((sub) => {
             stepMap[sub.step_id] = {
               step_id: sub.step_id,
               status: sub.status,
               score: sub.score !== undefined && sub.score !== null ? Number(sub.score) : null,
               submission_id: sub.id,
-            };
-            if (sub.score !== undefined && sub.score !== null) {
-              totalScore += Number(sub.score);
             }
-          });
+            if (sub.score !== undefined && sub.score !== null) {
+              totalScore += Number(sub.score)
+            }
+          })
 
           return {
             group_id: g.id,
@@ -191,21 +194,21 @@ export default function TeacherPage() {
             })) || [],
             steps: stepMap,
             total_score: totalScore,
-          };
-        });
+          }
+        })
       } else if (Array.isArray(matrixRes?.matrix)) {
-        matrixList = matrixRes.matrix;
+        matrixList = matrixRes.matrix
       }
 
-      setMatrix(matrixList);
+      setMatrix(matrixList)
     } catch {
       // Ignore
     }
-  }, [selectedRoom]);
+  }, [selectedRoom, selectedYear])
 
   useEffect(() => {
-    fetchRoomSpecificData();
-  }, [fetchRoomSpecificData]);
+    fetchRoomSpecificData()
+  }, [fetchRoomSpecificData])
 
   // Open review modal
   const handleOpenReview = (sub: Submission) => {
@@ -286,15 +289,16 @@ export default function TeacherPage() {
   };
 
   const handleExportGradeSheet = () => {
-    const url = api.getExportUrl(`/teacher/gradesheet/export?room=${encodeURIComponent(selectedRoom)}`);
-    window.open(url, "_blank");
-  };
+    const yr = selectedYear || "2568"
+    const url = api.getExportUrl(`/teacher/gradesheet/export?academic_year=${encodeURIComponent(yr)}&room=${encodeURIComponent(selectedRoom)}`)
+    window.open(url, "_blank")
+  }
 
   const handleExportScores = () => {
-    const yr = selectedYear || "2568";
-    const url = api.getExportUrl(`/presentation/scores/export?academic_year=${encodeURIComponent(yr)}`);
-    window.open(url, "_blank");
-  };
+    const yr = selectedYear || "2568"
+    const url = api.getExportUrl(`/presentation/scores/export?academic_year=${encodeURIComponent(yr)}`)
+    window.open(url, "_blank")
+  }
 
   return (
     <DashboardLayout allowedRoles={["TEACHER", "ADMIN"]} defaultTab="queue">
@@ -305,14 +309,14 @@ export default function TeacherPage() {
               <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
               <p className="text-xs text-slate-500">กำลังโหลดข้อมูลครูผู้สอน...</p>
             </div>
-          );
+          )
         }
 
         return (
           <>
             <div className="space-y-6 animate-in fade-in duration-200">
-              {/* Header with Room Selector */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+              {/* Header with Year and Room Selectors */}
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold">
                     <School className="w-5 h-5" />
@@ -327,34 +331,54 @@ export default function TeacherPage() {
                   </div>
                 </div>
 
-                {/* Room Pills */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                    <Filter className="w-3.5 h-3.5" /> เลือกห้องเรียน:
-                  </span>
-                  <button
-                    onClick={() => setSelectedRoom("")}
-                    className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                      selectedRoom === ""
-                        ? "bg-brand-500 text-white shadow-xs"
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
-                    }`}
-                  >
-                    ทั้งหมด
-                  </button>
-                  {assignedRooms.map((room) => (
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                  {/* Academic Year Selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <CalendarRange className="w-3.5 h-3.5 text-brand-500" /> ปีการศึกษา:
+                    </span>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-900 outline-none cursor-pointer"
+                    >
+                      {activeYears.map((y) => (
+                        <option key={y.id} value={y.year}>
+                          ปีการศึกษา {y.year} (เทอม {y.term}) {y.is_current ? "👑 ปัจจุบัน" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Room Pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Filter className="w-3.5 h-3.5" /> ห้อง:
+                    </span>
                     <button
-                      key={room}
-                      onClick={() => setSelectedRoom(room)}
+                      onClick={() => setSelectedRoom("")}
                       className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                        selectedRoom === room
+                        selectedRoom === ""
                           ? "bg-brand-500 text-white shadow-xs"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
                       }`}
                     >
-                      ม.{room}
+                      ทั้งหมด
                     </button>
-                  ))}
+                    {assignedRooms.map((room) => (
+                      <button
+                        key={room}
+                        onClick={() => setSelectedRoom(room)}
+                        className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          selectedRoom === room
+                            ? "bg-brand-500 text-white shadow-xs"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                        }`}
+                      >
+                        ม.{room}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"tunorth-cpms-backend/internal/config"
+	"tunorth-cpms-backend/internal/database"
 	"tunorth-cpms-backend/internal/models"
 	"tunorth-cpms-backend/internal/services"
 
@@ -33,10 +34,7 @@ func (tc *TeacherController) GetAssignedRooms(c *fiber.Ctx) error {
 
 	yearQuery := strings.TrimSpace(c.Query("academic_year"))
 	if yearQuery == "" {
-		var currentYear models.AcademicYear
-		if err := tc.db.Where("is_current = true").First(&currentYear).Error; err == nil && currentYear.Year != "" {
-			yearQuery = currentYear.Year
-		}
+		yearQuery = database.GetCurrentAcademicYear(tc.db)
 	}
 
 	var assignments []models.TeacherAssignment
@@ -72,26 +70,35 @@ func (tc *TeacherController) GetPendingSubmissionsQueue(c *fiber.Ctx) error {
 	}
 	userRole, _ := c.Locals("userRole").(models.UserRole)
 
+	academicYear := strings.TrimSpace(c.Query("academic_year"))
+	if academicYear == "" {
+		academicYear = database.GetCurrentAcademicYear(tc.db)
+	}
+
 	query := tc.db.Model(&models.Submission{}).
 		Preload("Group.Members.User").
 		Preload("Group.Advisor").
 		Preload("Step").
 		Preload("Submitter").
+		Joins("JOIN project_groups ON project_groups.id = submissions.group_id").
 		Where("submissions.status = ?", models.SubmissionStatusPending).
+		Where("project_groups.academic_year = ?", academicYear).
 		Order("submissions.submitted_at ASC")
 
 	if userRole != models.RoleAdmin {
-		// Find rooms assigned to this teacher
+		// Find rooms assigned to this teacher in this academic year
 		var assignments []models.TeacherAssignment
-		tc.db.Where("teacher_id = ?", teacherID).Find(&assignments)
+		tc.db.Where("teacher_id = ? AND academic_year = ?", teacherID, academicYear).Find(&assignments)
+		if len(assignments) == 0 {
+			tc.db.Where("teacher_id = ?", teacherID).Find(&assignments)
+		}
 		var rooms []string
 		for _, a := range assignments {
 			rooms = append(rooms, a.Room)
 		}
 
 		// Show submissions where group room is in assigned rooms OR teacher is group advisor
-		query = query.Joins("JOIN project_groups ON project_groups.id = submissions.group_id").
-			Where("project_groups.room IN (?) OR project_groups.advisor_id = ?", rooms, teacherID)
+		query = query.Where("project_groups.room IN (?) OR project_groups.advisor_id = ?", rooms, teacherID)
 	}
 
 	var pending []models.Submission
@@ -108,7 +115,10 @@ func (tc *TeacherController) GetPendingSubmissionsQueue(c *fiber.Ctx) error {
 
 func (tc *TeacherController) GetClassProgressMatrix(c *fiber.Ctx) error {
 	room := c.Query("room")
-	academicYear := c.Query("academic_year", "2568")
+	academicYear := strings.TrimSpace(c.Query("academic_year"))
+	if academicYear == "" {
+		academicYear = database.GetCurrentAcademicYear(tc.db)
+	}
 
 	// Get all steps
 	var steps []models.ProjectStep
@@ -143,7 +153,10 @@ func (tc *TeacherController) GetClassProgressMatrix(c *fiber.Ctx) error {
 
 func (tc *TeacherController) ExportGradeSheetCSV(c *fiber.Ctx) error {
 	room := c.Query("room")
-	academicYear := c.Query("academic_year", "2568")
+	academicYear := strings.TrimSpace(c.Query("academic_year"))
+	if academicYear == "" {
+		academicYear = database.GetCurrentAcademicYear(tc.db)
+	}
 
 	var steps []models.ProjectStep
 	tc.db.Where("is_active = true").Order("step_order ASC").Find(&steps)

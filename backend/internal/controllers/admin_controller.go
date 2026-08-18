@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"tunorth-cpms-backend/internal/config"
+	"tunorth-cpms-backend/internal/database"
 	"tunorth-cpms-backend/internal/models"
 	"tunorth-cpms-backend/internal/services"
 	"tunorth-cpms-backend/internal/utils"
@@ -125,14 +126,8 @@ func (ac *AdminController) CreateUser(c *fiber.Ctx) error {
 		ay := strings.TrimSpace(*req.AcademicYear)
 		academicYear = &ay
 	} else if req.Role == models.RoleStudent {
-		var yearSetting models.SystemSetting
-		if err := ac.db.Where("key = ?", "academic_year").First(&yearSetting).Error; err == nil && yearSetting.Value != "" {
-			ay := yearSetting.Value
-			academicYear = &ay
-		} else {
-			ay := "2568"
-			academicYear = &ay
-		}
+		ay := database.GetCurrentAcademicYear(ac.db)
+		academicYear = &ay
 	}
 
 	user := models.User{
@@ -313,12 +308,7 @@ func (ac *AdminController) ImportUsersCSV(c *fiber.Ctx) error {
 
 	defaultAcademicYear := strings.TrimSpace(c.FormValue("academic_year"))
 	if defaultAcademicYear == "" {
-		var yearSetting models.SystemSetting
-		if err := ac.db.Where("key = ?", "academic_year").First(&yearSetting).Error; err == nil && yearSetting.Value != "" {
-			defaultAcademicYear = yearSetting.Value
-		} else {
-			defaultAcademicYear = "2568"
-		}
+		defaultAcademicYear = database.GetCurrentAcademicYear(ac.db)
 	}
 
 	successCount := 0
@@ -452,12 +442,7 @@ func (ac *AdminController) AssignRoomToTeacher(c *fiber.Ctx) error {
 	// Determine academic year
 	academicYear := strings.TrimSpace(req.AcademicYear)
 	if academicYear == "" {
-		var currentYear models.AcademicYear
-		if err := ac.db.Where("is_current = true").First(&currentYear).Error; err == nil && currentYear.Year != "" {
-			academicYear = currentYear.Year
-		} else {
-			academicYear = "2568"
-		}
+		academicYear = database.GetCurrentAcademicYear(ac.db)
 	}
 
 	// Verify teacher exists and has TEACHER role

@@ -236,6 +236,11 @@ export default function AdminPage() {
         setAcademicYears(yearsList)
         const currYear = yearsList.find((y) => y.is_current)?.year || yearsList[0]?.year || "2568"
         setSelectedAssignmentYear((prev) => prev || currYear)
+        setUserYearFilter((prev) => prev || currYear)
+        setGroupYearFilter((prev) => prev || currYear)
+        setGroupAcademicYear((prev) => (prev === "2568" ? currYear : prev))
+        setUserAcademicYear((prev) => (!prev ? currYear : prev))
+        setImportAcademicYear((prev) => (!prev ? currYear : prev))
       }
 
       // Steps
@@ -1237,19 +1242,19 @@ export default function AdminPage() {
                 {/* Stat Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl">
-                    <span className="text-xs text-slate-500">ผู้ใช้ทั้งหมด</span>
+                    <span className="text-xs text-slate-500">นักเรียนปี {activeCurrentYear}</span>
                     <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                      {users.length}
+                      {users.filter((u) => u.role === "STUDENT" && u.academic_year === activeCurrentYear).length}
                     </div>
-                    <span className="text-[10px] text-brand-600 font-medium">บัญชีในระบบ</span>
+                    <span className="text-[10px] text-brand-600 font-medium">รวมทั้งหมด {users.filter((u) => u.role === "STUDENT").length} คน</span>
                   </div>
 
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl">
-                    <span className="text-xs text-slate-500">กลุ่มโครงงาน</span>
+                    <span className="text-xs text-slate-500">กลุ่มโครงงานปี {activeCurrentYear}</span>
                     <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                      {groups.length}
+                      {groups.filter((g) => g.academic_year === activeCurrentYear).length}
                     </div>
-                    <span className="text-[10px] text-blue-600 font-medium">กลุ่มทั้งหมด</span>
+                    <span className="text-[10px] text-blue-600 font-medium">รวมทุกปี {groups.length} กลุ่ม</span>
                   </div>
 
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl">
@@ -1261,11 +1266,11 @@ export default function AdminPage() {
                   </div>
 
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl">
-                    <span className="text-xs text-slate-500">รอบนำเสนอทั้งหมด</span>
+                    <span className="text-xs text-slate-500">รอบนำเสนอปี {activeCurrentYear}</span>
                     <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                      {slots.length}
+                      {slots.filter((s) => s.academic_year === activeCurrentYear).length}
                     </div>
-                    <span className="text-[10px] text-purple-600 font-medium">รอบการประเมิน</span>
+                    <span className="text-[10px] text-purple-600 font-medium">รวมทุกปี {slots.length} รอบ</span>
                   </div>
 
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl">

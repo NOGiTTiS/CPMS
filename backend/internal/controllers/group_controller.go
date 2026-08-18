@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"tunorth-cpms-backend/internal/config"
+	"tunorth-cpms-backend/internal/database"
 	"tunorth-cpms-backend/internal/models"
 	"tunorth-cpms-backend/internal/services"
 
@@ -78,12 +79,7 @@ func (gc *GroupController) CreateGroup(c *fiber.Ctx) error {
 
 	academicYear := req.AcademicYear
 	if academicYear == "" {
-		var yearSetting models.SystemSetting
-		if err := gc.db.Where("key = ?", "academic_year").First(&yearSetting).Error; err == nil && yearSetting.Value != "" {
-			academicYear = yearSetting.Value
-		} else {
-			academicYear = "2568"
-		}
+		academicYear = database.GetCurrentAcademicYear(gc.db)
 	}
 
 	var advisorName *string
@@ -357,10 +353,7 @@ func (gc *GroupController) SearchAvailableStudents(c *fiber.Ctx) error {
 	academicYear := strings.TrimSpace(c.Query("academic_year"))
 
 	if academicYear == "" {
-		var yearSetting models.SystemSetting
-		if err := gc.db.Where("key = ?", "academic_year").First(&yearSetting).Error; err == nil && yearSetting.Value != "" {
-			academicYear = yearSetting.Value
-		}
+		academicYear = database.GetCurrentAcademicYear(gc.db)
 	}
 
 	// Find user_ids that already have a group in this academic year

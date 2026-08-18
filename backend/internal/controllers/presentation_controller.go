@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"tunorth-cpms-backend/internal/config"
+	"tunorth-cpms-backend/internal/database"
 	"tunorth-cpms-backend/internal/models"
 	"tunorth-cpms-backend/internal/services"
 
@@ -79,7 +80,7 @@ func (pc *PresentationController) CreateSlot(c *fiber.Ctx) error {
 		req.MaxGroups = 1
 	}
 	if req.AcademicYear == "" {
-		req.AcademicYear = "2568"
+		req.AcademicYear = database.GetCurrentAcademicYear(pc.db)
 	}
 
 	slot := models.PresentationSlot{
@@ -528,7 +529,10 @@ func (pc *PresentationController) SubmitScore(c *fiber.Ctx) error {
 }
 
 func (pc *PresentationController) ExportScoresCSV(c *fiber.Ctx) error {
-	academicYear := c.Query("academic_year", "2568")
+	academicYear := strings.TrimSpace(c.Query("academic_year"))
+	if academicYear == "" {
+		academicYear = database.GetCurrentAcademicYear(pc.db)
+	}
 
 	var bookings []models.PresentationBooking
 	if err := pc.db.Preload("Group.Members.User").

@@ -20,6 +20,32 @@ func strPtr(s string) *string {
 	return &s
 }
 
+// GetCurrentAcademicYear returns the active/current academic year string
+func GetCurrentAcademicYear(db *gorm.DB) string {
+	var ay models.AcademicYear
+	if err := db.Where("is_current = true").First(&ay).Error; err == nil && ay.Year != "" {
+		return ay.Year
+	}
+	var setting models.SystemSetting
+	if err := db.Where("key = ?", "academic_year").First(&setting).Error; err == nil && setting.Value != "" {
+		return setting.Value
+	}
+	return "2568"
+}
+
+// GetCurrentAcademicTerm returns the active/current academic term string
+func GetCurrentAcademicTerm(db *gorm.DB) string {
+	var ay models.AcademicYear
+	if err := db.Where("is_current = true").First(&ay).Error; err == nil && ay.Term != "" {
+		return ay.Term
+	}
+	var setting models.SystemSetting
+	if err := db.Where("key = ?", "academic_term").First(&setting).Error; err == nil && setting.Value != "" {
+		return setting.Value
+	}
+	return "1"
+}
+
 func ConnectDB(cfg *config.Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=Asia/Bangkok",

@@ -108,75 +108,82 @@ export default function StudentPage() {
     try {
       setIsLoading(true);
       // 1. Get my group
+      let loadedGroup: ProjectGroup | null = null
       try {
-        const groupRes = await api.get<{ data?: ProjectGroup; group?: ProjectGroup; max_members?: number }>("/groups/my-group");
-        const myGroup = groupRes?.data || groupRes?.group || null;
+        const groupRes = await api.get<{ data?: ProjectGroup; group?: ProjectGroup; max_members?: number }>("/groups/my-group")
+        loadedGroup = groupRes?.data || groupRes?.group || null
         if (typeof groupRes?.max_members === "number" && groupRes.max_members > 0) {
-          setMaxMembersLimit(groupRes.max_members);
+          setMaxMembersLimit(groupRes.max_members)
         }
-        if (myGroup) {
-          setGroup(myGroup);
+        if (loadedGroup) {
+          setGroup(loadedGroup)
           // Fetch submissions for this group
-          const subsRes = await api.get<{ data?: Submission[]; submissions?: Submission[] }>(`/submissions/group/${myGroup.id}`);
-          const subsList = subsRes?.data || subsRes?.submissions || [];
-          setSubmissions(subsList);
+          const subsRes = await api.get<{ data?: Submission[]; submissions?: Submission[] }>(`/submissions/group/${loadedGroup.id}`)
+          const subsList = subsRes?.data || subsRes?.submissions || []
+          setSubmissions(subsList)
         } else {
-          setGroup(null);
+          setGroup(null)
         }
       } catch {
-        setGroup(null);
+        setGroup(null)
       }
 
       // Also get public settings to ensure maxMembersLimit is populated
       try {
-        const setRes = await api.get<{ data?: Record<string, string> }>("/settings/public");
-        const maxMem = parseInt(setRes?.data?.["max_members_per_group"] || "", 10);
+        const setRes = await api.get<{ data?: Record<string, string> }>("/settings/public")
+        const maxMem = parseInt(setRes?.data?.["max_members_per_group"] || "", 10)
         if (!isNaN(maxMem) && maxMem > 0) {
-          setMaxMembersLimit(maxMem);
+          setMaxMembersLimit(maxMem)
         }
       } catch {
         // Fallback
       }
 
       // 2. Get steps
-      const stepsRes = await api.get<{ data?: ProjectStep[]; steps?: ProjectStep[] }>("/steps");
-      const stepsList = stepsRes?.data || stepsRes?.steps || [];
+      const stepsRes = await api.get<{ data?: ProjectStep[]; steps?: ProjectStep[] }>("/steps")
+      const stepsList = stepsRes?.data || stepsRes?.steps || []
       if (Array.isArray(stepsList)) {
-        setSteps(stepsList.filter((s) => s.is_active));
+        setSteps(stepsList.filter((s) => s.is_active))
       }
 
-      // 3. Get presentation slots
-      const slotsRes = await api.get<{ data?: PresentationSlot[]; slots?: PresentationSlot[] }>("/presentation/slots");
-      const slotsList = slotsRes?.data || slotsRes?.slots || [];
-      if (Array.isArray(slotsList)) {
-        setSlots(slotsList);
-      }
-
-      // 4. Get teachers list
+      // 3. Get active academic years first
+      let currentYearVal = "2568"
       try {
-        const teachRes = await api.get<{ data?: User[] }>("/groups/teachers");
-        if (Array.isArray(teachRes?.data)) {
-          setTeachers(teachRes.data);
-        }
-      } catch {
-        // Fallback
-      }
-
-      // 5. Get active academic years
-      try {
-        const yearsRes = await api.get<{ data?: AcademicYear[] }>("/academic-years/active");
-        const yearsList = yearsRes?.data || [];
+        const yearsRes = await api.get<{ data?: AcademicYear[] }>("/academic-years/active")
+        const yearsList = yearsRes?.data || []
         if (Array.isArray(yearsList) && yearsList.length > 0) {
-          setActiveYears(yearsList);
-          const curr = yearsList.find((y) => y.is_current);
+          setActiveYears(yearsList)
+          const curr = yearsList.find((y) => y.is_current)
           if (curr) {
-            setAcademicYear(curr.year);
+            currentYearVal = curr.year
+            setAcademicYear(curr.year)
           } else {
-            setAcademicYear(yearsList[0].year);
+            currentYearVal = yearsList[0].year
+            setAcademicYear(yearsList[0].year)
           }
         }
       } catch {
         // Fallback default
+      }
+
+      // 4. Get presentation slots for student's year
+      const targetYear = loadedGroup?.academic_year || user?.academic_year || currentYearVal
+      const slotsRes = await api.get<{ data?: PresentationSlot[]; slots?: PresentationSlot[] }>("/presentation/slots", {
+        academic_year: targetYear
+      })
+      const slotsList = slotsRes?.data || slotsRes?.slots || []
+      if (Array.isArray(slotsList)) {
+        setSlots(slotsList)
+      }
+
+      // 5. Get teachers list
+      try {
+        const teachRes = await api.get<{ data?: User[] }>("/groups/teachers")
+        if (Array.isArray(teachRes?.data)) {
+          setTeachers(teachRes.data)
+        }
+      } catch {
+        // Fallback
       }
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "โหลดข้อมูลล้มเหลว";
