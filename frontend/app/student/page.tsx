@@ -35,6 +35,7 @@ import {
   ExternalLink,
   MessageSquare,
   AlertCircle,
+  ChevronLeft,
   ChevronRight,
   Pencil,
   Crown,
@@ -57,10 +58,21 @@ export default function StudentPage() {
   const [group, setGroup] = useState<ProjectGroup | null>(null);
   const [steps, setSteps] = useState<ProjectStep[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [slots, setSlots] = useState<PresentationSlot[]>([]);
-  const [rubricCriteria, setRubricCriteria] = useState<PresentationCriteria[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "steps" | "defense">("overview");
+  const [slots, setSlots] = useState<PresentationSlot[]>([])
+  const [rubricCriteria, setRubricCriteria] = useState<PresentationCriteria[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<"overview" | "steps" | "defense">("overview")
+
+  // Week navigation state for Student Timetable
+  const [slotWeekStart, setSlotWeekStart] = useState<Date>(() => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const mon = new Date(d)
+    mon.setDate(diff)
+    mon.setHours(0, 0, 0, 0)
+    return mon
+  })
 
   // Modals
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -495,35 +507,147 @@ export default function StudentPage() {
 
   const handleBookSlot = async (slotId: string) => {
     if (!group) {
-      toast.error("กรุณาสร้างกลุ่มก่อนจองรอบนำเสนอ");
-      return;
+      toast.error("กรุณาสร้างกลุ่มก่อนจองรอบนำเสนอ")
+      return
     }
 
     try {
       await api.post("/presentation/bookings", {
         slot_id: slotId,
         group_id: group.id,
-      });
-      toast.success("จองรอบนำเสนอโครงงานสำเร็จ");
-      fetchStudentData();
+      })
+      toast.success("จองรอบนำเสนอโครงงานสำเร็จ")
+      fetchStudentData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "จองรอบนำเสนอไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "จองรอบนำเสนอไม่สำเร็จ"
+      toast.error(errorMsg)
     }
-  };
+  }
 
   const handleCancelBooking = async (bookingId: string) => {
-    if (!confirm("คุณต้องการยกเลิกการจองรอบนำเสนอนี้ใช่หรือไม่?")) return;
+    if (!confirm("คุณต้องการยกเลิกการจองรอบนำเสนอนี้ใช่หรือไม่?")) return
 
     try {
-      await api.delete(`/presentation/bookings/${bookingId}`);
-      toast.success("ยกเลิกการจองสำเร็จ");
-      fetchStudentData();
+      await api.delete(`/presentation/bookings/${bookingId}`)
+      toast.success("ยกเลิกการจองสำเร็จ")
+      fetchStudentData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "ยกเลิกไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "ยกเลิกไม่สำเร็จ"
+      toast.error(errorMsg)
     }
-  };
+  }
+
+  // Period constants & Timetable helpers for Student
+  const PERIODS = [
+    { id: 1, name: "คาบ 1", time: "08:30 - 09:20", startH: 8, startM: 30, endH: 9, endM: 20 },
+    { id: 2, name: "คาบ 2", time: "09:20 - 10:10", startH: 9, startM: 20, endH: 10, endM: 10 },
+    { id: 3, name: "คาบ 3", time: "10:10 - 11:00", startH: 10, startM: 10, endH: 11, endM: 0 },
+    { id: 4, name: "คาบ 4", time: "11:00 - 11:50", startH: 11, startM: 0, endH: 11, endM: 50 },
+    { id: 6, name: "คาบ 6", time: "12:40 - 13:30", startH: 12, startM: 40, endH: 13, endM: 30 },
+    { id: 7, name: "คาบ 7", time: "13:30 - 14:20", startH: 13, startM: 30, endH: 14, endM: 20 },
+    { id: 8, name: "คาบ 8", time: "14:20 - 15:10", startH: 14, startM: 20, endH: 15, endM: 10 },
+    { id: 9, name: "คาบ 9", time: "15:10 - 16:00", startH: 15, startM: 10, endH: 16, endM: 0 },
+  ]
+
+  const getWeekDates = (startDate: Date) => {
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+      return d
+    })
+  }
+
+  const formatDayName = (date: Date) => {
+    const days = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
+    return days[date.getDay()] || ""
+  }
+
+  const formatShortDate = (date: Date) => {
+    const dd = String(date.getDate()).padStart(2, "0")
+    const mm = String(date.getMonth() + 1).padStart(2, "0")
+    return `${dd}/${mm}`
+  }
+
+  const formatWeekRange = (startDate: Date) => {
+    const friday = new Date(startDate)
+    friday.setDate(startDate.getDate() + 4)
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const startStr = `${startDate.getDate()} ${months[startDate.getMonth()]}`
+    const endStr = `${friday.getDate()} ${months[friday.getMonth()]} ${friday.getFullYear()}`
+    return `${startStr} - ${endStr}`
+  }
+
+  const handlePrevWeek = () => {
+    setSlotWeekStart((prev) => {
+      const next = new Date(prev)
+      next.setDate(prev.getDate() - 7)
+      return next
+    })
+  }
+
+  const handleNextWeek = () => {
+    setSlotWeekStart((prev) => {
+      const next = new Date(prev)
+      next.setDate(prev.getDate() + 7)
+      return next
+    })
+  }
+
+  const handleTodayWeek = () => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const mon = new Date(d)
+    mon.setDate(diff)
+    mon.setHours(0, 0, 0, 0)
+    setSlotWeekStart(mon)
+  }
+
+  const getSlotsForCell = (date: Date, periodId: number) => {
+    const dYear = date.getFullYear()
+    const dMonth = date.getMonth()
+    const dDate = date.getDate()
+    const period = PERIODS.find((p) => p.id === periodId)
+    if (!period) return []
+
+    return slots.filter((slot) => {
+      const slotDate = new Date(slot.start_time)
+      if (
+        slotDate.getFullYear() !== dYear ||
+        slotDate.getMonth() !== dMonth ||
+        slotDate.getDate() !== dDate
+      ) {
+        return false
+      }
+      const sH = slotDate.getHours()
+      const sM = slotDate.getMinutes()
+      return sH === period.startH && Math.abs(sM - period.startM) <= 10
+    })
+  }
+
+  const formatThaiDate = (dateStr?: string | Date) => {
+    if (!dateStr) return "-"
+    const d = new Date(dateStr)
+    const monthsThai = [
+      "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+      "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+    ]
+    const day = d.getDate()
+    const month = monthsThai[d.getMonth()]
+    const year = d.getFullYear() + 543
+    return `${day} ${month} ${year}`
+  }
+
+  const formatSlotTimeRange = (start?: string | Date, end?: string | Date) => {
+    if (!start || !end) return "-"
+    const s = new Date(start)
+    const e = new Date(end)
+    const sH = String(s.getHours()).padStart(2, "0")
+    const sM = String(s.getMinutes()).padStart(2, "0")
+    const eH = String(e.getHours()).padStart(2, "0")
+    const eM = String(e.getMinutes()).padStart(2, "0")
+    return `${sH}:${sM} - ${eH}:${eM} น.`
+  }
 
   // Helper to find latest submission of a step
   const getStepSubmission = (stepId: string): Submission | undefined => {
@@ -945,93 +1069,257 @@ export default function StudentPage() {
             {/* ==================== TAB 3: DEFENSE ==================== */}
             {activeTab === "defense" && (
               <div className="space-y-6 animate-in fade-in duration-200">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">จองรอบนำเสนอโครงงาน (Defense Booking)</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    เลือกรอบนำเสนอและห้องสอบที่สะดวกสำหรับกลุ่มของคุณ
-                  </p>
-                </div>
-
-                {group?.booking ? (
-                  <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-3xl p-6 space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center">
-                          <CheckCircle2 className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-                            กลุ่มของคุณทำการจองรอบเรียบร้อยแล้ว
-                          </span>
-                          <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                            สถานที่: {group.booking.slot?.location || "ห้องสอบโครงงาน"}
-                          </h3>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleCancelBooking(group.booking!.id)}
-                        className="bg-red-50 hover:bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400 px-4 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        ยกเลิกการจองรอบนี้
-                      </button>
+                {/* 1. Booked Slot Confirmation Card (if already booked) */}
+                {group?.booking && (
+                  <div className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 rounded-3xl overflow-hidden shadow-sm">
+                    {/* Top Green Banner */}
+                    <div className="bg-emerald-500 text-white py-3 px-6 text-center font-bold text-sm flex items-center justify-center gap-2 shadow-xs">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>กลุ่มของคุณจองเวลาเรียบร้อยแล้ว</span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2 border-t border-emerald-200/60 dark:border-emerald-900/60">
-                      <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                        <Calendar className="w-4 h-4 text-emerald-600" />
-                        <span>เริ่ม: {formatDate(group.booking.slot?.start_time)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                        <Clock className="w-4 h-4 text-emerald-600" />
-                        <span>สิ้นสุด: {formatDate(group.booking.slot?.end_time)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-4">
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      รอบนำเสนอที่เปิดให้จอง
-                    </h3>
+                    <div className="p-6 sm:p-8 text-center space-y-4">
+                      {/* Big Thai Date */}
+                      <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+                        {formatThaiDate(group.booking.slot?.start_time)}
+                      </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {slots.map((slot) => {
-                        const isFull = (slot.bookings?.length || 0) >= slot.max_groups;
-                        return (
-                          <div
-                            key={slot.id}
-                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3"
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <MapPin className="w-4 h-4 text-brand-500" />
-                                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                                    {slot.location}
-                                  </h4>
-                                </div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                  {formatDate(slot.start_time)} - {formatDate(slot.end_time)}
-                                </p>
-                              </div>
-                              <span className="text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-100 dark:bg-brand-950 px-2.5 py-1 rounded-lg">
-                                โควตา: {slot.bookings?.length || 0}/{slot.max_groups}
-                              </span>
-                            </div>
+                      {/* Time */}
+                      <div className="text-lg font-bold text-brand-600 dark:text-brand-400 font-en">
+                        {formatSlotTimeRange(group.booking.slot?.start_time, group.booking.slot?.end_time)}
+                      </div>
 
-                            <button
-                              disabled={isFull || !group}
-                              onClick={() => handleBookSlot(slot.id)}
-                              className="w-full bg-brand-500 hover:bg-brand-600 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 text-white font-bold py-2 rounded-xl text-xs transition-all cursor-pointer"
-                            >
-                              {isFull ? "รอบนี้เต็มแล้ว" : "จองรอบนี้นำเสนอ"}
-                            </button>
-                          </div>
-                        );
-                      })}
+                      {/* Location */}
+                      <div className="flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-300 text-sm font-medium">
+                        <MapPin className="w-4 h-4 text-slate-400" />
+                        <span>{group.booking.slot?.location || "ห้องสอบโครงงาน"}</span>
+                      </div>
+
+                      {/* Cancel Button */}
+                      <div className="pt-2">
+                        <button
+                          onClick={() => handleCancelBooking(group.booking!.id)}
+                          className="border border-rose-500 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 font-bold px-8 py-2 rounded-xl text-xs transition-all cursor-pointer"
+                        >
+                          ยกเลิกการจอง
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
+
+                {/* 2. Timetable Grid View */}
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                        ตารางการนำเสนอ (Presentation Timetable)
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {group?.booking
+                          ? "คุณสามารถเปลี่ยนรอบนำเสนอได้โดยการคลิกปุ่ม 'จอง' ในรอบใหม่ที่ต้องการ"
+                          : "เลือกรอบนำเสนอและช่วงเวลาที่สะดวกสำหรับกลุ่มของคุณ"}
+                      </p>
+                    </div>
+
+                    <div className="text-xs font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-200/60 dark:border-brand-900/60 self-start sm:self-auto">
+                      ปีการศึกษา {academicYear || "2568"}
+                    </div>
+                  </div>
+
+                  {/* Week Navigator */}
+                  <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-4 py-2.5 shadow-xs">
+                    <button
+                      onClick={handlePrevWeek}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                    >
+                      <ChevronLeft className="w-4 h-4" /> สัปดาห์ก่อนหน้า
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-brand-500" />
+                      <span className="font-bold text-sm text-slate-800 dark:text-slate-100 font-en">
+                        {formatWeekRange(slotWeekStart)}
+                      </span>
+                      <button
+                        onClick={handleTodayWeek}
+                        className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2 py-0.5 rounded-md hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors ml-2 cursor-pointer"
+                      >
+                        สัปดาห์นี้
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={handleNextWeek}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                    >
+                      สัปดาห์ถัดไป <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Table Grid */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-center border-collapse min-w-[720px]">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
+                            <th className="py-3 px-3 w-28 text-left border-r border-slate-200/60 dark:border-slate-800">คาบ / เวลา</th>
+                            {getWeekDates(slotWeekStart).map((date, idx) => (
+                              <th key={idx} className="py-3 px-2 border-r last:border-r-0 border-slate-200/60 dark:border-slate-800">
+                                <div className="text-slate-900 dark:text-white font-bold">{formatDayName(date)}</div>
+                                <div className="text-[11px] text-slate-400 font-normal font-en">{formatShortDate(date)}</div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+                          {/* Periods 1-4 */}
+                          {PERIODS.slice(0, 4).map((period) => (
+                            <tr key={period.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20">
+                              <td className="py-3 px-3 text-left border-r border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                                <div className="font-bold text-slate-900 dark:text-white">{period.name}</div>
+                                <div className="text-[10px] text-slate-400 font-en">{period.time}</div>
+                              </td>
+                              {getWeekDates(slotWeekStart).map((date, dayIdx) => {
+                                const cellSlots = getSlotsForCell(date, period.id)
+                                if (cellSlots.length === 0) {
+                                  return (
+                                    <td key={dayIdx} className="p-3 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 text-slate-300 dark:text-slate-700 align-middle">
+                                      -
+                                    </td>
+                                  )
+                                }
+                                return (
+                                  <td key={dayIdx} className="p-2 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 align-middle">
+                                    <div className="space-y-1.5">
+                                      {cellSlots.map((slot) => {
+                                        const isBookedByMe = group?.booking?.slot_id === slot.id
+                                        const bookedCount = slot.bookings?.length || 0
+                                        const isFull = bookedCount >= slot.max_groups
+
+                                        return (
+                                          <div
+                                            key={slot.id}
+                                            className={`rounded-xl p-2.5 border text-center text-xs space-y-1.5 transition-all ${
+                                              isBookedByMe
+                                                ? "bg-emerald-50/90 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 shadow-xs"
+                                                : isFull
+                                                ? "bg-slate-50/60 dark:bg-slate-950/40 border-slate-200/60 dark:border-slate-800/60 opacity-80"
+                                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-brand-300 dark:hover:border-brand-700 shadow-xs"
+                                            }`}
+                                          >
+                                            <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                              {slot.location}
+                                            </div>
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-en">
+                                              {bookedCount}/{slot.max_groups}
+                                            </div>
+
+                                            {isBookedByMe ? (
+                                              <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] py-1 px-2 rounded-lg block border border-emerald-200/80 dark:border-emerald-900/60">
+                                                ✓ รอบของคุณ
+                                              </span>
+                                            ) : isFull ? (
+                                              <span className="bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-semibold text-[11px] py-1 px-2 rounded-lg block">
+                                                เต็ม
+                                              </span>
+                                            ) : (
+                                              <button
+                                                onClick={() => handleBookSlot(slot.id)}
+                                                className="w-full bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white font-bold text-[11px] py-1.5 px-3 rounded-lg shadow-xs transition-all cursor-pointer"
+                                              >
+                                                จอง
+                                              </button>
+                                            )}
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+
+                          {/* Lunch Divider */}
+                          <tr className="bg-amber-50/60 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 font-medium text-[11px] border-y border-amber-200/50 dark:border-amber-900/40">
+                            <td colSpan={6} className="py-1.5 px-4 tracking-wide text-center">
+                              พักเที่ยง (11:50 - 12:40 น.)
+                            </td>
+                          </tr>
+
+                          {/* Periods 6-9 */}
+                          {PERIODS.slice(4).map((period) => (
+                            <tr key={period.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20">
+                              <td className="py-3 px-3 text-left border-r border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                                <div className="font-bold text-slate-900 dark:text-white">{period.name}</div>
+                                <div className="text-[10px] text-slate-400 font-en">{period.time}</div>
+                              </td>
+                              {getWeekDates(slotWeekStart).map((date, dayIdx) => {
+                                const cellSlots = getSlotsForCell(date, period.id)
+                                if (cellSlots.length === 0) {
+                                  return (
+                                    <td key={dayIdx} className="p-3 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 text-slate-300 dark:text-slate-700 align-middle">
+                                      -
+                                    </td>
+                                  )
+                                }
+                                return (
+                                  <td key={dayIdx} className="p-2 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 align-middle">
+                                    <div className="space-y-1.5">
+                                      {cellSlots.map((slot) => {
+                                        const isBookedByMe = group?.booking?.slot_id === slot.id
+                                        const bookedCount = slot.bookings?.length || 0
+                                        const isFull = bookedCount >= slot.max_groups
+
+                                        return (
+                                          <div
+                                            key={slot.id}
+                                            className={`rounded-xl p-2.5 border text-center text-xs space-y-1.5 transition-all ${
+                                              isBookedByMe
+                                                ? "bg-emerald-50/90 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 shadow-xs"
+                                                : isFull
+                                                ? "bg-slate-50/60 dark:bg-slate-950/40 border-slate-200/60 dark:border-slate-800/60 opacity-80"
+                                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-brand-300 dark:hover:border-brand-700 shadow-xs"
+                                            }`}
+                                          >
+                                            <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                              {slot.location}
+                                            </div>
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-en">
+                                              {bookedCount}/{slot.max_groups}
+                                            </div>
+
+                                            {isBookedByMe ? (
+                                              <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] py-1 px-2 rounded-lg block border border-emerald-200/80 dark:border-emerald-900/60">
+                                                ✓ รอบของคุณ
+                                              </span>
+                                            ) : isFull ? (
+                                              <span className="bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-semibold text-[11px] py-1 px-2 rounded-lg block">
+                                                เต็ม
+                                              </span>
+                                            ) : (
+                                              <button
+                                                onClick={() => handleBookSlot(slot.id)}
+                                                className="w-full bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white font-bold text-[11px] py-1.5 px-3 rounded-lg shadow-xs transition-all cursor-pointer"
+                                              >
+                                                จอง
+                                              </button>
+                                            )}
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

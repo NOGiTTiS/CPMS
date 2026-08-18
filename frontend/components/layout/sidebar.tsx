@@ -57,10 +57,10 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, onCloseMobile }: Side
 
     if (user.role === "TEACHER") {
       return [
-        { id: "queue", label: "คิวงานรอตรวจ (Review Queue)", icon: ListOrdered },
-        { id: "matrix", label: "ตารางสรุปงานห้องเรียน (Matrix)", icon: TableProperties },
-        { id: "defense", label: "กรรมการประเมิน Rubric", icon: Award },
-        { id: "export", label: "ส่งออกคะแนน (Export CSV)", icon: FileSpreadsheet },
+        { id: "queue", label: "คิวงานรอตรวจ", icon: ListOrdered },
+        { id: "matrix", label: "ตารางสรุปงานห้องเรียน", icon: TableProperties },
+        { id: "defense", label: "กรรมการประเมิน", icon: Award },
+        { id: "export", label: "ส่งออกคะแนน", icon: FileSpreadsheet },
       ];
     }
 

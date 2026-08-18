@@ -56,11 +56,13 @@ import {
   ArrowDown,
   Eye,
   EyeOff,
-  ToggleLeft,
-  Check,
-  X,
-  Copy,
-  CopyCheck
+  Check, 
+  X, 
+  Copy, 
+  CopyCheck,
+  Calendar,
+  Clock,
+  MapPin
 } from "lucide-react"
 
 export default function AdminPage() {
@@ -196,10 +198,29 @@ export default function AdminPage() {
   const [stepExamplePath, setStepExamplePath] = useState("");
 
   // Slot Form State
-  const [slotStartTime, setSlotStartTime] = useState("");
-  const [slotEndTime, setSlotEndTime] = useState("");
-  const [slotLocation, setSlotLocation] = useState("");
-  const [slotMaxGroups, setSlotMaxGroups] = useState<number>(1);
+  const [slotStartTime, setSlotStartTime] = useState("")
+  const [slotEndTime, setSlotEndTime] = useState("")
+  const [slotLocation, setSlotLocation] = useState("")
+  const [slotMaxGroups, setSlotMaxGroups] = useState<number>(1)
+
+  // Week navigation state for Defense Slots Timetable
+  const [slotWeekStart, setSlotWeekStart] = useState<Date>(() => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const mon = new Date(d)
+    mon.setDate(diff)
+    mon.setHours(0, 0, 0, 0)
+    return mon
+  })
+
+  // Batch Slot Form State
+  const [showBatchModal, setShowBatchModal] = useState(false)
+  const [batchDates, setBatchDates] = useState<string[]>([])
+  const [batchPeriods, setBatchPeriods] = useState<number[]>([1, 2, 3, 4, 6, 7, 8, 9])
+  const [batchLocation, setBatchLocation] = useState("Meeting Room")
+  const [batchMaxGroups, setBatchMaxGroups] = useState<number>(1)
+  const [isSubmittingBatch, setIsSubmittingBatch] = useState(false)
 
   // Criteria Form State
   const [critLabel, setCritLabel] = useState("");
@@ -941,39 +962,172 @@ export default function AdminPage() {
     }
   };
 
+  // Period constants & Timetable helpers
+  const PERIODS = [
+    { id: 1, name: "คาบ 1", time: "08:30 - 09:20", startH: 8, startM: 30, endH: 9, endM: 20 },
+    { id: 2, name: "คาบ 2", time: "09:20 - 10:10", startH: 9, startM: 20, endH: 10, endM: 10 },
+    { id: 3, name: "คาบ 3", time: "10:10 - 11:00", startH: 10, startM: 10, endH: 11, endM: 0 },
+    { id: 4, name: "คาบ 4", time: "11:00 - 11:50", startH: 11, startM: 0, endH: 11, endM: 50 },
+    { id: 6, name: "คาบ 6", time: "12:40 - 13:30", startH: 12, startM: 40, endH: 13, endM: 30 },
+    { id: 7, name: "คาบ 7", time: "13:30 - 14:20", startH: 13, startM: 30, endH: 14, endM: 20 },
+    { id: 8, name: "คาบ 8", time: "14:20 - 15:10", startH: 14, startM: 20, endH: 15, endM: 10 },
+    { id: 9, name: "คาบ 9", time: "15:10 - 16:00", startH: 15, startM: 10, endH: 16, endM: 0 },
+  ]
+
+  const getWeekDates = (startDate: Date) => {
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+      return d
+    })
+  }
+
+  const formatDayName = (date: Date) => {
+    const days = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
+    return days[date.getDay()] || ""
+  }
+
+  const formatShortDate = (date: Date) => {
+    const dd = String(date.getDate()).padStart(2, "0")
+    const mm = String(date.getMonth() + 1).padStart(2, "0")
+    return `${dd}/${mm}`
+  }
+
+  const formatWeekRange = (startDate: Date) => {
+    const friday = new Date(startDate)
+    friday.setDate(startDate.getDate() + 4)
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const startStr = `${startDate.getDate()} ${months[startDate.getMonth()]}`
+    const endStr = `${friday.getDate()} ${months[friday.getMonth()]} ${friday.getFullYear()}`
+    return `${startStr} - ${endStr}`
+  }
+
+  const handlePrevWeek = () => {
+    setSlotWeekStart((prev) => {
+      const next = new Date(prev)
+      next.setDate(prev.getDate() - 7)
+      return next
+    })
+  }
+
+  const handleNextWeek = () => {
+    setSlotWeekStart((prev) => {
+      const next = new Date(prev)
+      next.setDate(prev.getDate() + 7)
+      return next
+    })
+  }
+
+  const handleTodayWeek = () => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const mon = new Date(d)
+    mon.setDate(diff)
+    mon.setHours(0, 0, 0, 0)
+    setSlotWeekStart(mon)
+  }
+
+  const getSlotsForCell = (date: Date, periodId: number) => {
+    const dYear = date.getFullYear()
+    const dMonth = date.getMonth()
+    const dDate = date.getDate()
+    const period = PERIODS.find((p) => p.id === periodId)
+    if (!period) return []
+
+    return slots.filter((slot) => {
+      const slotDate = new Date(slot.start_time)
+      if (
+        slotDate.getFullYear() !== dYear ||
+        slotDate.getMonth() !== dMonth ||
+        slotDate.getDate() !== dDate
+      ) {
+        return false
+      }
+      const sH = slotDate.getHours()
+      const sM = slotDate.getMinutes()
+      return sH === period.startH && Math.abs(sM - period.startM) <= 10
+    })
+  }
+
+  const handleQuickAddSlot = (date: Date, period: (typeof PERIODS)[0]) => {
+    const yyyy = date.getFullYear()
+    const mm = String(date.getMonth() + 1).padStart(2, "0")
+    const dd = String(date.getDate()).padStart(2, "0")
+    const dStr = `${yyyy}-${mm}-${dd}`
+    const startStr = `${dStr}T${String(period.startH).padStart(2, "0")}:${String(period.startM).padStart(2, "0")}`
+    const endStr = `${dStr}T${String(period.endH).padStart(2, "0")}:${String(period.endM).padStart(2, "0")}`
+    setSlotStartTime(startStr)
+    setSlotEndTime(endStr)
+    setSlotLocation("Meeting Room")
+    setSlotMaxGroups(1)
+    setShowSlotModal(true)
+  }
+
   // 7. Create Slot
   const handleCreateSlot = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     try {
       await api.post("/presentation/slots", {
-        academic_year: "2568",
+        academic_year: activeCurrentYear || "2568",
         start_time: new Date(slotStartTime).toISOString(),
         end_time: new Date(slotEndTime).toISOString(),
         location: slotLocation,
         max_groups: Number(slotMaxGroups),
-      });
+      })
 
-      toast.success("สร้างรอบนำเสนอสำเร็จ");
-      setShowSlotModal(false);
-      fetchAllAdminData();
+      toast.success("สร้างรอบนำเสนอสำเร็จ")
+      setShowSlotModal(false)
+      fetchAllAdminData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "สร้างรอบนำเสนอไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "สร้างรอบนำเสนอไม่สำเร็จ"
+      toast.error(errorMsg)
     }
-  };
+  }
+
+  // 7.1 Batch Create Slots
+  const handleBatchCreateSlots = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (batchDates.length === 0) {
+      toast.error("กรุณาเลือกวันที่อย่างน้อย 1 วัน")
+      return
+    }
+    if (batchPeriods.length === 0) {
+      toast.error("กรุณาเลือกคาบอย่างน้อย 1 คาบ")
+      return
+    }
+    setIsSubmittingBatch(true)
+    try {
+      const res = await api.post<{ success: boolean; message: string; created_count: number }>("/presentation/slots/batch", {
+        dates: batchDates,
+        periods: batchPeriods,
+        location: batchLocation || "Meeting Room",
+        max_groups: Number(batchMaxGroups) || 1,
+        academic_year: activeCurrentYear || "2568",
+      })
+      toast.success(res?.message || `สร้างรอบนำเสนอสำเร็จ ${res?.created_count || 0} รอบ`)
+      setShowBatchModal(false)
+      fetchAllAdminData()
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "สร้างรอบแบบชุดไม่สำเร็จ"
+      toast.error(errorMsg)
+    } finally {
+      setIsSubmittingBatch(false)
+    }
+  }
 
   // 8. Delete Slot
   const handleDeleteSlot = async (slotId: string) => {
-    if (!confirm("คุณต้องการลบรอบนำเสนอนี้ใช่หรือไม่?")) return;
+    if (!confirm("คุณต้องการลบรอบนำเสนอนี้ใช่หรือไม่?")) return
     try {
-      await api.delete(`/presentation/slots/${slotId}`);
-      toast.success("ลบรอบนำเสนอสำเร็จ");
-      fetchAllAdminData();
+      await api.delete(`/presentation/slots/${slotId}`)
+      toast.success("ลบรอบนำเสนอสำเร็จ")
+      fetchAllAdminData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "ลบรอบนำเสนอไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "ลบรอบนำเสนอไม่สำเร็จ"
+      toast.error(errorMsg)
     }
-  };
+  }
 
   // Helper to validate real classroom name format
   const isValidRoom = (r?: string | null): r is string => {
@@ -2618,50 +2772,278 @@ export default function AdminPage() {
             {/* ==================== TAB 5: DEFENSE & RUBRIC ==================== */}
             {activeTab === "defense" && (
               <div className="space-y-6 animate-in fade-in duration-200">
-                {/* Defense Slots */}
+                {/* Defense Slots Timetable */}
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                     <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <CalendarCheck className="w-4 h-4 text-brand-500" />
-                        จัดการรอบนำเสนอโครงงาน (Presentation Defense Slots)
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <CalendarCheck className="w-5 h-5 text-brand-500" />
+                          จัดการตารางนำเสนอ (Presentation Defense Schedule)
+                        </h3>
+                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 border border-brand-200/60 dark:border-brand-900/60">
+                          ปีการศึกษา {activeCurrentYear || "2568"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        คลิกที่ช่องว่าง (+) เพื่อเพิ่มรอบ หรือคลิกที่ไอคอนเพื่อดูรายละเอียด / ลบรอบ
+                      </p>
                     </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => {
+                          const weekDays = getWeekDates(slotWeekStart).map(d => {
+                            const y = d.getFullYear()
+                            const m = String(d.getMonth() + 1).padStart(2, "0")
+                            const day = String(d.getDate()).padStart(2, "0")
+                            return `${y}-${m}-${day}`
+                          })
+                          setBatchDates(weekDays.slice(0, 3))
+                          setShowBatchModal(true)
+                        }}
+                        className="bg-brand-500 hover:bg-brand-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> สร้างหลายรอบ (Batch)
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const exportUrl = api.getExportUrl(`/presentation/scores/export?academic_year=${encodeURIComponent(activeCurrentYear || "2568")}`)
+                          window.open(exportUrl, "_blank")
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Export Scores
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Week Navigator */}
+                  <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-4 py-2.5 shadow-xs">
                     <button
-                      onClick={() => setShowSlotModal(true)}
-                      className="bg-brand-500 hover:bg-brand-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                      onClick={handlePrevWeek}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
                     >
-                      <Plus className="w-4 h-4" /> เพิ่มรอบนำเสนอ
+                      <ChevronLeft className="w-4 h-4" /> สัปดาห์ก่อนหน้า
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-brand-500" />
+                      <span className="font-bold text-sm text-slate-800 dark:text-slate-100 font-en">
+                        {formatWeekRange(slotWeekStart)}
+                      </span>
+                      <button
+                        onClick={handleTodayWeek}
+                        className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2 py-0.5 rounded-md hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors ml-2 cursor-pointer"
+                      >
+                        สัปดาห์นี้
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={handleNextWeek}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                    >
+                      สัปดาห์ถัดไป <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {slots.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                              {slot.location}
-                            </h4>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                              {formatDate(slot.start_time)} - {formatDate(slot.end_time)}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteSlot(slot.id)}
-                            className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <span className="text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2.5 py-1 rounded-lg inline-block">
-                          จองแล้ว {slot.bookings?.length || 0} / {slot.max_groups} กลุ่ม
-                        </span>
-                      </div>
-                    ))}
+                  {/* Timetable Table Grid */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-center border-collapse min-w-[720px]">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
+                            <th className="py-3 px-3 w-28 text-left border-r border-slate-200/60 dark:border-slate-800">คาบ / เวลา</th>
+                            {getWeekDates(slotWeekStart).map((date, idx) => (
+                              <th key={idx} className="py-3 px-2 border-r last:border-r-0 border-slate-200/60 dark:border-slate-800">
+                                <div className="text-slate-900 dark:text-white font-bold">{formatDayName(date)}</div>
+                                <div className="text-[11px] text-slate-400 font-normal font-en">{formatShortDate(date)}</div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+                          {/* Periods 1-4 */}
+                          {PERIODS.slice(0, 4).map((period) => (
+                            <tr key={period.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20">
+                              <td className="py-3 px-3 text-left border-r border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                                <div className="font-bold text-slate-900 dark:text-white">{period.name}</div>
+                                <div className="text-[10px] text-slate-400 font-en">{period.time}</div>
+                              </td>
+                              {getWeekDates(slotWeekStart).map((date, dayIdx) => {
+                                const cellSlots = getSlotsForCell(date, period.id)
+                                return (
+                                  <td key={dayIdx} className="p-2 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 align-middle">
+                                    {cellSlots.length === 0 ? (
+                                      <button
+                                        onClick={() => handleQuickAddSlot(date, period)}
+                                        className="w-full h-12 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-950/30 flex items-center justify-center text-slate-300 dark:text-slate-700 hover:text-brand-600 dark:hover:text-brand-400 transition-all cursor-pointer group"
+                                        title={`เพิ่มรอบ ${formatDayName(date)} ${period.name}`}
+                                      >
+                                        <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                      </button>
+                                    ) : (
+                                      <div className="space-y-1.5">
+                                        {cellSlots.map((slot) => {
+                                          const bookedCount = slot.bookings?.length || 0
+                                          const isFull = bookedCount >= slot.max_groups
+                                          return (
+                                            <div
+                                              key={slot.id}
+                                              className={`rounded-xl p-2 border text-left text-xs transition-all relative group ${
+                                                isFull
+                                                  ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200/80 dark:border-rose-900/50"
+                                                  : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-brand-300 dark:hover:border-brand-700 shadow-xs"
+                                              }`}
+                                            >
+                                              <div className="flex items-start justify-between gap-1">
+                                                <div className="min-w-0 flex-1">
+                                                  <div className="font-semibold text-slate-900 dark:text-white truncate flex items-center gap-1 text-[11px]">
+                                                    <MapPin className="w-3 h-3 text-brand-500 shrink-0" />
+                                                    <span className="truncate">{slot.location}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span
+                                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                        isFull
+                                                          ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                                          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                                                      }`}
+                                                    >
+                                                      {bookedCount}/{slot.max_groups} กลุ่ม
+                                                    </span>
+                                                    {isFull && <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">เต็ม</span>}
+                                                  </div>
+                                                  {bookedCount > 0 && slot.bookings && slot.bookings[0]?.group && (
+                                                    <div className="text-[10px] text-slate-600 dark:text-slate-400 truncate mt-1 bg-slate-50 dark:bg-slate-800/80 px-1 py-0.5 rounded">
+                                                      📌 {slot.bookings[0].group.project_name_th}
+                                                    </div>
+                                                  )}
+                                                </div>
+
+                                                <button
+                                                  onClick={() => handleDeleteSlot(slot.id)}
+                                                  disabled={bookedCount > 0}
+                                                  className="opacity-0 group-hover:opacity-100 disabled:opacity-20 text-red-500 hover:text-red-700 p-0.5 rounded transition-opacity cursor-pointer disabled:cursor-not-allowed shrink-0"
+                                                  title={bookedCount > 0 ? "มีกลุ่มจองแล้ว ไม่สามารถลบได้" : "ลบรอบนี้"}
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )
+                                        })}
+                                        <button
+                                          onClick={() => handleQuickAddSlot(date, period)}
+                                          className="w-full py-0.5 rounded border border-dashed border-slate-200 hover:border-brand-400 text-slate-300 hover:text-brand-500 text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                                          title="เพิ่มรอบอีกห้อง"
+                                        >
+                                          <Plus className="w-3 h-3" /> เพิ่มรอบ
+                                        </button>
+                                      </div>
+                                    )}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+
+                          {/* Lunch Divider */}
+                          <tr className="bg-amber-50/60 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 font-medium text-[11px] border-y border-amber-200/50 dark:border-amber-900/40">
+                            <td colSpan={6} className="py-1.5 px-4 tracking-wide text-center">
+                              พักเที่ยง (11:50 - 12:40 น.)
+                            </td>
+                          </tr>
+
+                          {/* Periods 6-9 */}
+                          {PERIODS.slice(4).map((period) => (
+                            <tr key={period.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20">
+                              <td className="py-3 px-3 text-left border-r border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                                <div className="font-bold text-slate-900 dark:text-white">{period.name}</div>
+                                <div className="text-[10px] text-slate-400 font-en">{period.time}</div>
+                              </td>
+                              {getWeekDates(slotWeekStart).map((date, dayIdx) => {
+                                const cellSlots = getSlotsForCell(date, period.id)
+                                return (
+                                  <td key={dayIdx} className="p-2 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 align-middle">
+                                    {cellSlots.length === 0 ? (
+                                      <button
+                                        onClick={() => handleQuickAddSlot(date, period)}
+                                        className="w-full h-12 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-950/30 flex items-center justify-center text-slate-300 dark:text-slate-700 hover:text-brand-600 dark:hover:text-brand-400 transition-all cursor-pointer group"
+                                        title={`เพิ่มรอบ ${formatDayName(date)} ${period.name}`}
+                                      >
+                                        <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                      </button>
+                                    ) : (
+                                      <div className="space-y-1.5">
+                                        {cellSlots.map((slot) => {
+                                          const bookedCount = slot.bookings?.length || 0
+                                          const isFull = bookedCount >= slot.max_groups
+                                          return (
+                                            <div
+                                              key={slot.id}
+                                              className={`rounded-xl p-2 border text-left text-xs transition-all relative group ${
+                                                isFull
+                                                  ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200/80 dark:border-rose-900/50"
+                                                  : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-brand-300 dark:hover:border-brand-700 shadow-xs"
+                                              }`}
+                                            >
+                                              <div className="flex items-start justify-between gap-1">
+                                                <div className="min-w-0 flex-1">
+                                                  <div className="font-semibold text-slate-900 dark:text-white truncate flex items-center gap-1 text-[11px]">
+                                                    <MapPin className="w-3 h-3 text-brand-500 shrink-0" />
+                                                    <span className="truncate">{slot.location}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span
+                                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                        isFull
+                                                          ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                                          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                                                      }`}
+                                                    >
+                                                      {bookedCount}/{slot.max_groups} กลุ่ม
+                                                    </span>
+                                                    {isFull && <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">เต็ม</span>}
+                                                  </div>
+                                                  {bookedCount > 0 && slot.bookings && slot.bookings[0]?.group && (
+                                                    <div className="text-[10px] text-slate-600 dark:text-slate-400 truncate mt-1 bg-slate-50 dark:bg-slate-800/80 px-1 py-0.5 rounded">
+                                                      📌 {slot.bookings[0].group.project_name_th}
+                                                    </div>
+                                                  )}
+                                                </div>
+
+                                                <button
+                                                  onClick={() => handleDeleteSlot(slot.id)}
+                                                  disabled={bookedCount > 0}
+                                                  className="opacity-0 group-hover:opacity-100 disabled:opacity-20 text-red-500 hover:text-red-700 p-0.5 rounded transition-opacity cursor-pointer disabled:cursor-not-allowed shrink-0"
+                                                  title={bookedCount > 0 ? "มีกลุ่มจองแล้ว ไม่สามารถลบได้" : "ลบรอบนี้"}
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )
+                                        })}
+                                        <button
+                                          onClick={() => handleQuickAddSlot(date, period)}
+                                          className="w-full py-0.5 rounded border border-dashed border-slate-200 hover:border-brand-400 text-slate-300 hover:text-brand-500 text-[10px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                                          title="เพิ่มรอบอีกห้อง"
+                                        >
+                                          <Plus className="w-3 h-3" /> เพิ่มรอบ
+                                        </button>
+                                      </div>
+                                    )}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
@@ -3473,6 +3855,189 @@ export default function AdminPage() {
                     className="flex-1 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold cursor-pointer"
                   >
                     สร้างรอบ
+                  </button>
+                </div>
+              </form>
+            </Modal>
+
+            {/* Modal: Batch Slot Create */}
+            <Modal
+              isOpen={showBatchModal}
+              onClose={() => setShowBatchModal(false)}
+              title="สร้างรอบแบบ Batch"
+              maxWidth="md"
+            >
+              <form onSubmit={handleBatchCreateSlots} className="space-y-4">
+                {/* 1. Select Dates */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      เลือกวันที่ (ได้หลายวัน) *
+                    </label>
+                    <span className="text-[11px] text-brand-600 font-medium">
+                      เลือกแล้ว {batchDates.length} วัน
+                    </span>
+                  </div>
+
+                  {/* Quick Select Days from Current Week */}
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {getWeekDates(slotWeekStart).map((d, i) => {
+                      const y = d.getFullYear()
+                      const m = String(d.getMonth() + 1).padStart(2, "0")
+                      const day = String(d.getDate()).padStart(2, "0")
+                      const dStr = `${y}-${m}-${day}`
+                      const isSelected = batchDates.includes(dStr)
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setBatchDates((prev) =>
+                              isSelected ? prev.filter((x) => x !== dStr) : [...prev, dStr]
+                            )
+                          }}
+                          className={`py-1.5 px-1 rounded-xl text-center border text-[11px] font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-brand-500 border-brand-500 text-white shadow-xs"
+                              : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-brand-300"
+                          }`}
+                        >
+                          <div>{formatDayName(d)}</div>
+                          <div className="text-[10px] font-normal opacity-80 font-en">{formatShortDate(d)}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Custom Date Input Add */}
+                  <div className="flex gap-2 items-center pt-1">
+                    <input
+                      type="date"
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (val && !batchDates.includes(val)) {
+                          setBatchDates((prev) => [...prev, val].sort())
+                        }
+                        e.target.value = ""
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs flex-1"
+                    />
+                    <span className="text-[11px] text-slate-400">เลือกวันเพิ่ม</span>
+                  </div>
+
+                  {/* Selected Dates Chips */}
+                  {batchDates.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200/60 dark:border-slate-800 max-h-24 overflow-y-auto">
+                      {batchDates.map((dateStr) => (
+                        <span
+                          key={dateStr}
+                          className="inline-flex items-center gap-1 bg-brand-50 dark:bg-brand-950 border border-brand-200/80 dark:border-brand-900/60 text-brand-700 dark:text-brand-300 text-[11px] font-medium px-2 py-0.5 rounded-lg"
+                        >
+                          {dateStr}
+                          <button
+                            type="button"
+                            onClick={() => setBatchDates((prev) => prev.filter((d) => d !== dateStr))}
+                            className="hover:text-red-500 cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Select Periods */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      เลือกคาบที่ต้องการสร้าง *
+                    </label>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setBatchPeriods([1, 2, 3, 4, 6, 7, 8, 9])}
+                        className="text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+                      >
+                        เลือกทั้งหมด
+                      </button>
+                      <span>|</span>
+                      <button
+                        type="button"
+                        onClick={() => setBatchPeriods([])}
+                        className="text-slate-400 hover:underline cursor-pointer"
+                      >
+                        ล้าง
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    {PERIODS.map((period) => {
+                      const isSelected = batchPeriods.includes(period.id)
+                      return (
+                        <button
+                          key={period.id}
+                          type="button"
+                          onClick={() => {
+                            setBatchPeriods((prev) =>
+                              isSelected ? prev.filter((p) => p !== period.id) : [...prev, period.id].sort((a, b) => a - b)
+                            )
+                          }}
+                          className={`p-2 rounded-xl text-center border text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-brand-500 border-brand-500 text-white shadow-xs"
+                              : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-brand-300 dark:hover:border-brand-700"
+                          }`}
+                        >
+                          <div>{period.name}</div>
+                          <div className="text-[10px] font-normal opacity-80 font-en">{period.time}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Location */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-800 dark:text-slate-200">สถานที่ *</label>
+                  <input
+                    type="text"
+                    required
+                    value={batchLocation}
+                    onChange={(e) => setBatchLocation(e.target.value)}
+                    placeholder="เช่น Meeting Room, ห้องคอมพิวเตอร์ 1"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"
+                  />
+                </div>
+
+                {/* 4. Max Groups */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-800 dark:text-slate-200">จำนวนกลุ่มต่อรอบ</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={batchMaxGroups}
+                    onChange={(e) => setBatchMaxGroups(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowBatchModal(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingBatch || batchDates.length === 0 || batchPeriods.length === 0}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 active:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                  >
+                    {isSubmittingBatch ? "กำลังสร้างรอบ..." : `สร้างรอบ (${batchDates.length * batchPeriods.length} รอบ)`}
                   </button>
                 </div>
               </form>

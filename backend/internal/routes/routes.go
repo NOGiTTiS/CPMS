@@ -112,6 +112,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	presGroup.Use(middleware.AuthRequired(cfg))
 	presGroup.Get("/slots", presentationCtrl.ListSlots)
 	presGroup.Post("/slots", middleware.TeacherGuard(), presentationCtrl.CreateSlot)
+	presGroup.Post("/slots/batch", middleware.TeacherGuard(), presentationCtrl.BatchCreateSlots)
 	presGroup.Delete("/slots/:id", middleware.AdminGuard(), presentationCtrl.DeleteSlot)
 	presGroup.Post("/bookings", presentationCtrl.BookSlot)
 	presGroup.Delete("/bookings/:bookingId", presentationCtrl.CancelBooking)

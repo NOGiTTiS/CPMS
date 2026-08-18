@@ -37,35 +37,55 @@ import {
   UserCheck, 
   Download,
   CalendarRange,
+  Calendar,
+  ChevronLeft,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  LayoutGrid,
+  List,
+  Sparkles,
+  Info,
+  Edit3
 } from "lucide-react"
 
 export default function TeacherPage() {
-  const { user } = useAuthStore();
-  const [assignedRooms, setAssignedRooms] = useState<string[]>([]);
-  const [selectedRoom, setSelectedRoom] = useState<string>("");
-  const [activeYears, setActiveYears] = useState<AcademicYear[]>([]);
-  const [selectedYear, setSelectedYear] = useState<string>("2568");
-  const [queue, setQueue] = useState<Submission[]>([]);
-  const [matrix, setMatrix] = useState<MatrixRow[]>([]);
-  const [steps, setSteps] = useState<ProjectStep[]>([]);
-  const [slots, setSlots] = useState<PresentationSlot[]>([]);
-  const [criteriaList, setCriteriaList] = useState<PresentationCriteria[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuthStore()
+  const [assignedRooms, setAssignedRooms] = useState<string[]>([])
+  const [selectedRoom, setSelectedRoom] = useState<string>("")
+  const [activeYears, setActiveYears] = useState<AcademicYear[]>([])
+  const [selectedYear, setSelectedYear] = useState<string>("2568")
+  const [queue, setQueue] = useState<Submission[]>([])
+  const [matrix, setMatrix] = useState<MatrixRow[]>([])
+  const [steps, setSteps] = useState<ProjectStep[]>([])
+  const [slots, setSlots] = useState<PresentationSlot[]>([])
+  const [criteriaList, setCriteriaList] = useState<PresentationCriteria[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   // Review Modal State
-  const [reviewSubmission, setReviewSubmission] = useState<Submission | null>(null);
-  const [reviewStatus, setReviewStatus] = useState<"APPROVED" | "REJECTED">("APPROVED");
-  const [reviewScore, setReviewScore] = useState<number>(0);
-  const [reviewComment, setReviewComment] = useState("");
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewSubmission, setReviewSubmission] = useState<Submission | null>(null)
+  const [reviewStatus, setReviewStatus] = useState<"APPROVED" | "REJECTED">("APPROVED")
+  const [reviewScore, setReviewScore] = useState<number>(0)
+  const [reviewComment, setReviewComment] = useState("")
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   // Rubric Score Modal State
-  const [rubricBooking, setRubricBooking] = useState<PresentationBooking | null>(null);
-  const [rubricScores, setRubricScores] = useState<Record<string, number>>({});
-  const [rubricComments, setRubricComments] = useState("");
-  const [isSubmittingRubric, setIsSubmittingRubric] = useState(false);
+  const [rubricBooking, setRubricBooking] = useState<PresentationBooking | null>(null)
+  const [rubricScores, setRubricScores] = useState<Record<string, number>>({})
+  const [rubricComments, setRubricComments] = useState("")
+  const [isSubmittingRubric, setIsSubmittingRubric] = useState(false)
+  const [rubricTab, setRubricTab] = useState<"evaluate" | "history">("evaluate")
+
+  // Defense Schedule View State
+  const [defenseViewMode, setDefenseViewMode] = useState<"grid" | "list">("grid")
+  const [slotWeekStart, setSlotWeekStart] = useState<Date>(() => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const mon = new Date(d)
+    mon.setDate(diff)
+    mon.setHours(0, 0, 0, 0)
+    return mon
+  })
 
   // 1. Fetch initial teacher static data (years, steps, criteria)
   const fetchTeacherData = useCallback(async () => {
@@ -241,52 +261,166 @@ export default function TeacherPage() {
     }
   };
 
-  // Open rubric modal
+  // Period constants & Timetable helpers
+  const PERIODS = [
+    { id: 1, name: "คาบ 1", time: "08:30 - 09:20", startH: 8, startM: 30, endH: 9, endM: 20 },
+    { id: 2, name: "คาบ 2", time: "09:20 - 10:10", startH: 9, startM: 20, endH: 10, endM: 10 },
+    { id: 3, name: "คาบ 3", time: "10:10 - 11:00", startH: 10, startM: 10, endH: 11, endM: 0 },
+    { id: 4, name: "คาบ 4", time: "11:00 - 11:50", startH: 11, startM: 0, endH: 11, endM: 50 },
+    { id: 6, name: "คาบ 6", time: "12:40 - 13:30", startH: 12, startM: 40, endH: 13, endM: 30 },
+    { id: 7, name: "คาบ 7", time: "13:30 - 14:20", startH: 13, startM: 30, endH: 14, endM: 20 },
+    { id: 8, name: "คาบ 8", time: "14:20 - 15:10", startH: 14, startM: 20, endH: 15, endM: 10 },
+    { id: 9, name: "คาบ 9", time: "15:10 - 16:00", startH: 15, startM: 10, endH: 16, endM: 0 },
+  ]
+
+  const getWeekDates = (startDate: Date) => {
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+      return d
+    })
+  }
+
+  const formatDayName = (date: Date) => {
+    const days = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
+    return days[date.getDay()] || ""
+  }
+
+  const formatShortDate = (date: Date) => {
+    const dd = String(date.getDate()).padStart(2, "0")
+    const mm = String(date.getMonth() + 1).padStart(2, "0")
+    return `${dd}/${mm}`
+  }
+
+  const formatWeekRange = (startDate: Date) => {
+    const friday = new Date(startDate)
+    friday.setDate(startDate.getDate() + 4)
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const startStr = `${startDate.getDate()} ${months[startDate.getMonth()]}`
+    const endStr = `${friday.getDate()} ${months[friday.getMonth()]} ${friday.getFullYear()}`
+    return `${startStr} - ${endStr}`
+  }
+
+  const handlePrevWeek = () => {
+    setSlotWeekStart((prev) => {
+      const next = new Date(prev)
+      next.setDate(prev.getDate() - 7)
+      return next
+    })
+  }
+
+  const handleNextWeek = () => {
+    setSlotWeekStart((prev) => {
+      const next = new Date(prev)
+      next.setDate(prev.getDate() + 7)
+      return next
+    })
+  }
+
+  const handleTodayWeek = () => {
+    const d = new Date()
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const mon = new Date(d)
+    mon.setDate(diff)
+    mon.setHours(0, 0, 0, 0)
+    setSlotWeekStart(mon)
+  }
+
+  const getSlotsForCell = (date: Date, periodId: number) => {
+    const dYear = date.getFullYear()
+    const dMonth = date.getMonth()
+    const dDate = date.getDate()
+    const period = PERIODS.find((p) => p.id === periodId)
+    if (!period) return []
+
+    return slots.filter((slot) => {
+      const slotDate = new Date(slot.start_time)
+      if (
+        slotDate.getFullYear() !== dYear ||
+        slotDate.getMonth() !== dMonth ||
+        slotDate.getDate() !== dDate
+      ) {
+        return false
+      }
+      const sH = slotDate.getHours()
+      const sM = slotDate.getMinutes()
+      return sH === period.startH && Math.abs(sM - period.startM) <= 10
+    })
+  }
+
+  // Open rubric modal and pre-fill existing evaluation
   const handleOpenRubric = (booking: PresentationBooking) => {
-    setRubricBooking(booking);
-    const initialScores: Record<string, number> = {};
+    setRubricBooking(booking)
+    setRubricTab("evaluate")
+
+    // Find if the logged-in teacher has already evaluated this group
+    const myScore = booking.scores?.find((s) => s.scorer_id === user?.id)
+    const initialScores: Record<string, number> = {}
+    let initialComments = ""
+
+    if (myScore) {
+      initialComments = myScore.comments || ""
+      if (myScore.criteria_data) {
+        try {
+          const parsed = typeof myScore.criteria_data === "string"
+            ? JSON.parse(myScore.criteria_data)
+            : myScore.criteria_data
+          if (parsed && typeof parsed === "object") {
+            Object.assign(initialScores, parsed)
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
+    }
+
+    // Default missing criteria to max_score
     criteriaList.forEach((c) => {
-      initialScores[c.id] = c.max_score; // default to max score
-    });
-    setRubricScores(initialScores);
-    setRubricComments("");
-  };
+      if (initialScores[c.id] === undefined) {
+        initialScores[c.id] = c.max_score
+      }
+    })
+
+    setRubricScores(initialScores)
+    setRubricComments(initialComments)
+  }
 
   const handleScoreChange = (criteriaId: string, value: number) => {
     setRubricScores((prev) => ({
       ...prev,
       [criteriaId]: value,
-    }));
-  };
+    }))
+  }
 
   const handleSubmitRubric = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rubricBooking) return;
+    e.preventDefault()
+    if (!rubricBooking) return
 
-    let total = 0;
+    let total = 0
     Object.values(rubricScores).forEach((v) => {
-      total += Number(v);
-    });
+      total += Number(v)
+    })
 
-    setIsSubmittingRubric(true);
+    setIsSubmittingRubric(true)
     try {
       await api.post("/presentation/scores", {
         booking_id: rubricBooking.id,
         criteria_data: rubricScores,
         total_score: total,
         comments: rubricComments.trim(),
-      });
+      })
 
-      toast.success("บันทึกคะแนนการประเมิน Rubric สำเร็จ");
-      setRubricBooking(null);
-      fetchTeacherData();
+      toast.success("บันทึกคะแนนการประเมิน Rubric สำเร็จ")
+      setRubricBooking(null)
+      fetchTeacherData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "บันทึกคะแนนไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "บันทึกคะแนนไม่สำเร็จ"
+      toast.error(errorMsg)
     } finally {
-      setIsSubmittingRubric(false);
+      setIsSubmittingRubric(false)
     }
-  };
+  }
 
   const handleExportGradeSheet = () => {
     const yr = selectedYear || "2568"
@@ -591,63 +725,405 @@ export default function TeacherPage() {
                         คณะกรรมการประเมิน Rubric การนำเสนอโครงงาน
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        ประเมินคะแนนรายกลุ่มตามเกณฑ์ Rubric ในรอบนำเสนอ
+                        ประเมินคะแนนรายกลุ่มตามเกณฑ์ Rubric ในรอบนำเสนอ พร้อมแสดงสถานะการประเมินของคณะกรรมการ
                       </p>
                     </div>
 
-                    <button
-                      onClick={handleExportScores}
-                      className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <Download className="w-4 h-4" /> Export รายงานคะแนน Rubric CSV
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* View Mode Toggle */}
+                      <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                        <button
+                          onClick={() => setDefenseViewMode("grid")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            defenseViewMode === "grid"
+                              ? "bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs"
+                              : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                          }`}
+                        >
+                          <LayoutGrid className="w-3.5 h-3.5" /> ตารางสัปดาห์
+                        </button>
+                        <button
+                          onClick={() => setDefenseViewMode("list")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            defenseViewMode === "list"
+                              ? "bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs"
+                              : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                          }`}
+                        >
+                          <List className="w-3.5 h-3.5" /> รายการการ์ด
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={handleExportScores}
+                        className="bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" /> Export คะแนน Rubric CSV
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {slots.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-4 shadow-sm"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                              สถานที่: {slot.location}
-                            </h4>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                              เวลา: {formatDate(slot.start_time)} - {formatDate(slot.end_time)}
-                            </p>
-                          </div>
-                          <span className="text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2.5 py-1 rounded-lg">
-                            จองแล้ว {slot.bookings?.length || 0} กลุ่ม
+                  {/* 1. WEEKLY TIMETABLE GRID VIEW */}
+                  {defenseViewMode === "grid" && (
+                    <div className="space-y-4">
+                      {/* Week Navigator */}
+                      <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-4 py-2.5 shadow-xs">
+                        <button
+                          onClick={handlePrevWeek}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                        >
+                          <ChevronLeft className="w-4 h-4" /> สัปดาห์ก่อนหน้า
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-brand-500" />
+                          <span className="font-bold text-sm text-slate-800 dark:text-slate-100 font-en">
+                            {formatWeekRange(slotWeekStart)}
                           </span>
+                          <button
+                            onClick={handleTodayWeek}
+                            className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2 py-0.5 rounded-md hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors ml-2 cursor-pointer"
+                          >
+                            สัปดาห์นี้
+                          </button>
                         </div>
 
-                        {/* Bookings inside slot */}
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {slot.bookings?.map((b) => (
-                            <div key={b.id} className="py-3 flex items-center justify-between">
-                              <div>
-                                <div className="text-xs font-bold text-slate-900 dark:text-white">
-                                  {b.group?.project_name_th}
-                                </div>
-                                <div className="text-[11px] text-slate-400 font-en">
-                                  ห้อง ม.{b.group?.room || "-"}
-                                </div>
-                              </div>
+                        <button
+                          onClick={handleNextWeek}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                        >
+                          สัปดาห์ถัดไป <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
 
-                              <button
-                                onClick={() => handleOpenRubric(b)}
-                                className="bg-brand-50 hover:bg-brand-100 dark:bg-brand-950 dark:hover:bg-brand-900 text-brand-700 dark:text-brand-300 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
-                              >
-                                ✍️ ให้คะแนน Rubric
-                              </button>
-                            </div>
-                          ))}
+                      {/* Grid Table */}
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-center border-collapse min-w-[760px]">
+                            <thead>
+                              <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
+                                <th className="py-3 px-3 w-28 text-left border-r border-slate-200/60 dark:border-slate-800">คาบ / เวลา</th>
+                                {getWeekDates(slotWeekStart).map((date, idx) => (
+                                  <th key={idx} className="py-3 px-2 border-r last:border-r-0 border-slate-200/60 dark:border-slate-800">
+                                    <div className="text-slate-900 dark:text-white font-bold">{formatDayName(date)}</div>
+                                    <div className="text-[11px] text-slate-400 font-normal font-en">{formatShortDate(date)}</div>
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+                              {/* Periods 1-4 */}
+                              {PERIODS.slice(0, 4).map((period) => (
+                                <tr key={period.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20">
+                                  <td className="py-3 px-3 text-left border-r border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                                    <div className="font-bold text-slate-900 dark:text-white">{period.name}</div>
+                                    <div className="text-[10px] text-slate-400 font-en">{period.time}</div>
+                                  </td>
+                                  {getWeekDates(slotWeekStart).map((date, dayIdx) => {
+                                    const cellSlots = getSlotsForCell(date, period.id)
+                                    if (cellSlots.length === 0) {
+                                      return (
+                                        <td key={dayIdx} className="p-3 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 text-slate-300 dark:text-slate-700 align-middle">
+                                          -
+                                        </td>
+                                      )
+                                    }
+                                    return (
+                                      <td key={dayIdx} className="p-2 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 align-top text-left">
+                                        <div className="space-y-2">
+                                          {cellSlots.map((slot) => (
+                                            <div key={slot.id} className="rounded-2xl p-2.5 bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-2 shadow-xs">
+                                              <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                                                <span className="flex items-center gap-1">
+                                                  <MapPin className="w-3 h-3 text-brand-500 shrink-0" />
+                                                  <span className="truncate">{slot.location}</span>
+                                                </span>
+                                                <span className="text-[10px] font-bold text-slate-400 font-en">
+                                                  {slot.bookings?.length || 0}/{slot.max_groups}
+                                                </span>
+                                              </div>
+
+                                              {/* Bookings inside slot */}
+                                              {slot.bookings && slot.bookings.length > 0 ? (
+                                                <div className="space-y-2 pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                                                  {slot.bookings.map((b) => {
+                                                    const myScore = b.scores?.find((s) => s.scorer_id === user?.id)
+                                                    const scoreList = b.scores || []
+                                                    const scoreCount = scoreList.length
+                                                    const avgScore = scoreCount > 0 
+                                                      ? (scoreList.reduce((acc, s) => acc + s.total_score, 0) / scoreCount).toFixed(2)
+                                                      : null
+
+                                                    return (
+                                                      <div key={b.id} className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 space-y-1.5">
+                                                        <div className="flex items-start justify-between gap-1">
+                                                          <div className="font-bold text-slate-900 dark:text-white text-[11px] leading-tight line-clamp-2">
+                                                            {b.group?.project_name_th}
+                                                          </div>
+                                                          <span className="text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded shrink-0">
+                                                            ม.{b.group?.room || "-"}
+                                                          </span>
+                                                        </div>
+
+                                                        {(b.group?.advisor || b.group?.advisor_name) && (
+                                                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                                            ที่ปรึกษา: {b.group.advisor?.full_name || b.group.advisor_name}
+                                                          </div>
+                                                        )}
+
+                                                        <div className="flex items-center justify-between gap-1 pt-1 text-[10px]">
+                                                          <span className="text-slate-400">
+                                                            👥 ประเมิน: <span className="font-bold text-slate-700 dark:text-slate-300">{scoreCount} ท่าน</span>
+                                                            {avgScore && ` (${avgScore})`}
+                                                          </span>
+                                                        </div>
+
+                                                        {/* Action Button */}
+                                                        {myScore ? (
+                                                          <button
+                                                            onClick={() => handleOpenRubric(b)}
+                                                            className="w-full py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1"
+                                                          >
+                                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                                            คุณประเมินแล้ว ({myScore.total_score} คะแนน)
+                                                          </button>
+                                                        ) : (
+                                                          <button
+                                                            onClick={() => handleOpenRubric(b)}
+                                                            className="w-full py-1.5 px-2 rounded-lg bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white text-[10px] font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                                                          >
+                                                            <Award className="w-3 h-3" />
+                                                            ให้คะแนน Rubric
+                                                          </button>
+                                                        )}
+                                                      </div>
+                                                    )
+                                                  })}
+                                                </div>
+                                              ) : (
+                                                <div className="text-[10px] text-slate-400 text-center py-1">
+                                                  ยังไม่มีกลุ่มจอง
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </td>
+                                    )
+                                  })}
+                                </tr>
+                              ))}
+
+                              {/* Lunch Divider */}
+                              <tr className="bg-amber-50/60 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 font-medium text-[11px] border-y border-amber-200/50 dark:border-amber-900/40">
+                                <td colSpan={6} className="py-1.5 px-4 tracking-wide text-center">
+                                  พักเที่ยง (11:50 - 12:40 น.)
+                                </td>
+                              </tr>
+
+                              {/* Periods 6-9 */}
+                              {PERIODS.slice(4).map((period) => (
+                                <tr key={period.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20">
+                                  <td className="py-3 px-3 text-left border-r border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                                    <div className="font-bold text-slate-900 dark:text-white">{period.name}</div>
+                                    <div className="text-[10px] text-slate-400 font-en">{period.time}</div>
+                                  </td>
+                                  {getWeekDates(slotWeekStart).map((date, dayIdx) => {
+                                    const cellSlots = getSlotsForCell(date, period.id)
+                                    if (cellSlots.length === 0) {
+                                      return (
+                                        <td key={dayIdx} className="p-3 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 text-slate-300 dark:text-slate-700 align-middle">
+                                          -
+                                        </td>
+                                      )
+                                    }
+                                    return (
+                                      <td key={dayIdx} className="p-2 border-r last:border-r-0 border-slate-200/40 dark:border-slate-800/60 align-top text-left">
+                                        <div className="space-y-2">
+                                          {cellSlots.map((slot) => (
+                                            <div key={slot.id} className="rounded-2xl p-2.5 bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-2 shadow-xs">
+                                              <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                                                <span className="flex items-center gap-1">
+                                                  <MapPin className="w-3 h-3 text-brand-500 shrink-0" />
+                                                  <span className="truncate">{slot.location}</span>
+                                                </span>
+                                                <span className="text-[10px] font-bold text-slate-400 font-en">
+                                                  {slot.bookings?.length || 0}/{slot.max_groups}
+                                                </span>
+                                              </div>
+
+                                              {/* Bookings inside slot */}
+                                              {slot.bookings && slot.bookings.length > 0 ? (
+                                                <div className="space-y-2 pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                                                  {slot.bookings.map((b) => {
+                                                    const myScore = b.scores?.find((s) => s.scorer_id === user?.id)
+                                                    const scoreList = b.scores || []
+                                                    const scoreCount = scoreList.length
+                                                    const avgScore = scoreCount > 0 
+                                                      ? (scoreList.reduce((acc, s) => acc + s.total_score, 0) / scoreCount).toFixed(2)
+                                                      : null
+
+                                                    return (
+                                                      <div key={b.id} className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 space-y-1.5">
+                                                        <div className="flex items-start justify-between gap-1">
+                                                          <div className="font-bold text-slate-900 dark:text-white text-[11px] leading-tight line-clamp-2">
+                                                            {b.group?.project_name_th}
+                                                          </div>
+                                                          <span className="text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded shrink-0">
+                                                            ม.{b.group?.room || "-"}
+                                                          </span>
+                                                        </div>
+
+                                                        {(b.group?.advisor || b.group?.advisor_name) && (
+                                                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                                            ที่ปรึกษา: {b.group.advisor?.full_name || b.group.advisor_name}
+                                                          </div>
+                                                        )}
+
+                                                        <div className="flex items-center justify-between gap-1 pt-1 text-[10px]">
+                                                          <span className="text-slate-400">
+                                                            👥 ประเมิน: <span className="font-bold text-slate-700 dark:text-slate-300">{scoreCount} ท่าน</span>
+                                                            {avgScore && ` (${avgScore})`}
+                                                          </span>
+                                                        </div>
+
+                                                        {/* Action Button */}
+                                                        {myScore ? (
+                                                          <button
+                                                            onClick={() => handleOpenRubric(b)}
+                                                            className="w-full py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1"
+                                                          >
+                                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                                            คุณประเมินแล้ว ({myScore.total_score} คะแนน)
+                                                          </button>
+                                                        ) : (
+                                                          <button
+                                                            onClick={() => handleOpenRubric(b)}
+                                                            className="w-full py-1.5 px-2 rounded-lg bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white text-[10px] font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                                                          >
+                                                            <Award className="w-3 h-3" />
+                                                            ให้คะแนน Rubric
+                                                          </button>
+                                                        )}
+                                                      </div>
+                                                    )
+                                                  })}
+                                                </div>
+                                              ) : (
+                                                <div className="text-[10px] text-slate-400 text-center py-1">
+                                                  ยังไม่มีกลุ่มจอง
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </td>
+                                    )
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* 2. LIST CARDS VIEW */}
+                  {defenseViewMode === "list" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {slots.length === 0 ? (
+                        <div className="col-span-2 text-center py-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-slate-400 text-xs">
+                          ไม่พบรอบนำเสนอโครงงานในปีการศึกษานี้
+                        </div>
+                      ) : (
+                        slots.map((slot) => (
+                          <div
+                            key={slot.id}
+                            className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 space-y-4 shadow-sm"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5">
+                                  <MapPin className="w-4 h-4 text-brand-500" />
+                                  {slot.location}
+                                </h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-en">
+                                  {formatDate(slot.start_time)} - {formatDate(slot.end_time)}
+                                </p>
+                              </div>
+                              <span className="text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2.5 py-1 rounded-lg">
+                                จองแล้ว {slot.bookings?.length || 0}/{slot.max_groups} กลุ่ม
+                              </span>
+                            </div>
+
+                            {/* Bookings inside slot */}
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                              {slot.bookings && slot.bookings.length > 0 ? (
+                                slot.bookings.map((b) => {
+                                  const myScore = b.scores?.find((s) => s.scorer_id === user?.id)
+                                  const scoreList = b.scores || []
+                                  const scoreCount = scoreList.length
+                                  const avgScore = scoreCount > 0 
+                                    ? (scoreList.reduce((acc, s) => acc + s.total_score, 0) / scoreCount).toFixed(2)
+                                    : null
+
+                                  return (
+                                    <div key={b.id} className="py-3.5 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                                      <div className="space-y-1">
+                                        <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                          <span>{b.group?.project_name_th}</span>
+                                          <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded">
+                                            ม.{b.group?.room || "-"}
+                                          </span>
+                                        </div>
+                                        {b.group?.project_name_en && (
+                                          <div className="text-[11px] text-slate-400 font-en italic">
+                                            {b.group.project_name_en}
+                                          </div>
+                                        )}
+                                        {(b.group?.advisor || b.group?.advisor_name) && (
+                                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                            ครูที่ปรึกษา: {b.group.advisor?.full_name || b.group.advisor_name}
+                                          </div>
+                                        )}
+                                        <div className="text-[10px] text-slate-400">
+                                          👥 คณะกรรมการประเมินแล้ว: <span className="font-bold text-slate-700 dark:text-slate-300">{scoreCount} ท่าน</span>
+                                          {avgScore && ` (คะแนนเฉลี่ย: ${avgScore} คะแนน)`}
+                                        </div>
+                                      </div>
+
+                                      {myScore ? (
+                                        <button
+                                          onClick={() => handleOpenRubric(b)}
+                                          className="bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+                                        >
+                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                          คุณประเมินแล้ว ({myScore.total_score} คะแนน)
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleOpenRubric(b)}
+                                          className="bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+                                        >
+                                          <Award className="w-3.5 h-3.5" />
+                                          ให้คะแนน Rubric
+                                        </button>
+                                      )}
+                                    </div>
+                                  )
+                                })
+                              ) : (
+                                <div className="py-4 text-center text-xs text-slate-400">
+                                  ยังไม่มีกลุ่มจองในรอบเวลานี้
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -814,85 +1290,280 @@ export default function TeacherPage() {
             <Modal
               isOpen={!!rubricBooking}
               onClose={() => setRubricBooking(null)}
-              title={rubricBooking ? `กลุ่ม: ${rubricBooking.group?.project_name_th}` : undefined}
-              description="แบบประเมิน Rubric การนำเสนอโครงงาน"
-              maxWidth="xl"
+              title={rubricBooking ? `แบบประเมิน Rubric: ${rubricBooking.group?.project_name_th}` : undefined}
+              description="ประเมินคะแนนการนำเสนอโครงงานตามเกณฑ์ Rubric Score"
+              maxWidth="2xl"
             >
               {rubricBooking && (
-                <form onSubmit={handleSubmitRubric} className="space-y-4">
-                  <div className="space-y-3">
-                    {criteriaList.map((crit, idx) => (
-                      <div
-                        key={crit.id}
-                        className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h5 className="font-bold text-slate-900 dark:text-white text-xs">
-                              {idx + 1}. {crit.label}
-                            </h5>
-                            {crit.description && (
-                              <p className="text-[11px] text-slate-400 mt-0.5">{crit.description}</p>
-                            )}
-                          </div>
-                          <span className="text-xs font-bold text-brand-600 font-en">
-                            เต็ม {crit.max_score}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min="0"
-                            max={crit.max_score}
-                            step="0.5"
-                            value={rubricScores[crit.id] || 0}
-                            onChange={(e) => handleScoreChange(crit.id, Number(e.target.value))}
-                            className="flex-1 accent-brand-500 cursor-pointer"
-                          />
-                          <span className="w-12 text-right font-bold text-xs text-brand-600 font-en">
-                            {rubricScores[crit.id] || 0}
-                          </span>
-                        </div>
+                <div className="space-y-4">
+                  {/* Group Info Card */}
+                  <div className="p-4 rounded-2xl bg-brand-50/60 dark:bg-brand-950/40 border border-brand-200/60 dark:border-brand-900/50 space-y-2 text-xs">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-1">
+                      <div className="font-bold text-slate-900 dark:text-white text-sm">
+                        {rubricBooking.group?.project_name_th}
                       </div>
-                    ))}
+                      <span className="text-[11px] font-bold text-brand-700 dark:text-brand-300 bg-brand-100 dark:bg-brand-900/60 px-2 py-0.5 rounded-md self-start sm:self-auto">
+                        ห้อง ม.{rubricBooking.group?.room || "-"}
+                      </span>
+                    </div>
+
+                    {rubricBooking.group?.project_name_en && (
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-en italic">
+                        {rubricBooking.group.project_name_en}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-brand-200/40 dark:border-brand-900/40 text-[11px] text-slate-600 dark:text-slate-300">
+                      {(rubricBooking.group?.advisor || rubricBooking.group?.advisor_name) && (
+                        <div>
+                          ครูที่ปรึกษา: <span className="font-semibold text-slate-800 dark:text-slate-200">{rubricBooking.group.advisor?.full_name || rubricBooking.group.advisor_name}</span>
+                        </div>
+                      )}
+                      {rubricBooking.slot && (
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-brand-500" />
+                          <span>{rubricBooking.slot.location} ({formatDate(rubricBooking.slot.start_time)})</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {rubricBooking.group?.members && rubricBooking.group.members.length > 0 && (
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                        สมาชิก: {rubricBooking.group.members.map((m) => m.user?.full_name || m.user_id).join(", ")}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      ข้อเสนอแนะจากกรรมการ
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={rubricComments}
-                      onChange={(e) => setRubricComments(e.target.value)}
-                      placeholder="เขียนข้อคิดเห็นหรือคำแนะนำเพิ่มเติม..."
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500"
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
+                  {/* Subtabs Switcher */}
+                  <div className="flex border-b border-slate-200 dark:border-slate-800 text-xs font-semibold">
                     <button
                       type="button"
-                      onClick={() => setRubricBooking(null)}
-                      className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                      onClick={() => setRubricTab("evaluate")}
+                      className={`pb-2 px-4 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                        rubricTab === "evaluate"
+                          ? "border-brand-500 text-brand-600 dark:text-brand-400 font-bold"
+                          : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      }`}
                     >
-                      ยกเลิก
+                      <Award className="w-3.5 h-3.5" /> แบบประเมินของคุณ
                     </button>
                     <button
-                      type="submit"
-                      disabled={isSubmittingRubric}
-                      className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-md shadow-brand-500/20 cursor-pointer disabled:opacity-50"
+                      type="button"
+                      onClick={() => setRubricTab("history")}
+                      className={`pb-2 px-4 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                        rubricTab === "history"
+                          ? "border-brand-500 text-brand-600 dark:text-brand-400 font-bold"
+                          : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      }`}
                     >
-                      {isSubmittingRubric ? "กำลังบันทึก..." : "ส่งคะแนนประเมิน"}
+                      <Users className="w-3.5 h-3.5" /> คะแนนของกรรมการทั้งหมด ({rubricBooking.scores?.length || 0} ท่าน)
                     </button>
                   </div>
-                </form>
+
+                  {/* Tab 1: Evaluate Form */}
+                  {rubricTab === "evaluate" && (
+                    <form onSubmit={handleSubmitRubric} className="space-y-4">
+                      <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                        {criteriaList.map((crit, idx) => {
+                          const currentScore = rubricScores[crit.id] ?? crit.max_score
+                          return (
+                            <div
+                              key={crit.id}
+                              className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3"
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="space-y-0.5">
+                                  <h5 className="font-bold text-slate-900 dark:text-white text-xs">
+                                    {idx + 1}. {crit.label}
+                                  </h5>
+                                  {crit.description && (
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                      {crit.description}
+                                    </p>
+                                  )}
+                                </div>
+                                <span className="text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950 px-2 py-0.5 rounded-lg shrink-0 font-en">
+                                  เต็ม {crit.max_score}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+                                {/* Range Slider */}
+                                <div className="flex-1 w-full flex items-center gap-2">
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max={crit.max_score}
+                                    step="0.5"
+                                    value={currentScore}
+                                    onChange={(e) => handleScoreChange(crit.id, Number(e.target.value))}
+                                    className="w-full accent-brand-500 cursor-pointer"
+                                  />
+                                </div>
+
+                                {/* Direct Number Input */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={crit.max_score}
+                                    step="0.5"
+                                    value={currentScore}
+                                    onChange={(e) => {
+                                      const val = Math.min(crit.max_score, Math.max(0, Number(e.target.value)))
+                                      handleScoreChange(crit.id, val)
+                                    }}
+                                    className="w-16 px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center font-bold text-xs text-brand-600 dark:text-brand-400 font-en outline-none focus:border-brand-500"
+                                  />
+                                  <span className="text-xs text-slate-400">/ {crit.max_score}</span>
+                                </div>
+
+                                {/* Quick Presets */}
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleScoreChange(crit.id, 0)}
+                                    className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                                  >
+                                    0
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleScoreChange(crit.id, crit.max_score / 2)}
+                                    className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                                  >
+                                    50%
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleScoreChange(crit.id, crit.max_score)}
+                                    className="px-2 py-1 rounded-md bg-brand-50 hover:bg-brand-100 dark:bg-brand-950 dark:hover:bg-brand-900 text-[10px] font-semibold text-brand-700 dark:text-brand-300 transition-colors cursor-pointer"
+                                  >
+                                    เต็ม
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Total Score Real-time Preview */}
+                      {(() => {
+                        let total = 0
+                        let maxTotal = 0
+                        criteriaList.forEach((c) => {
+                          total += Number(rubricScores[c.id] ?? c.max_score)
+                          maxTotal += c.max_score
+                        })
+                        const percentage = maxTotal > 0 ? ((total / maxTotal) * 100).toFixed(1) : "0"
+
+                        return (
+                          <div className="p-4 rounded-2xl bg-brand-50/70 dark:bg-brand-950/40 border border-brand-200/80 dark:border-brand-900/60 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                            <div>
+                              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                คะแนนรวมการประเมินของคุณ
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                คิดเป็น {percentage}% ของเกณฑ์ทั้งหมด
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-2xl font-bold text-brand-600 dark:text-brand-400 font-en">
+                                {total.toFixed(1)}
+                              </span>
+                              <span className="text-xs font-bold text-slate-400 font-en"> / {maxTotal.toFixed(1)} คะแนน</span>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          ข้อเสนอแนะและจุดที่ควรปรับปรุง (Feedback)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={rubricComments}
+                          onChange={(e) => setRubricComments(e.target.value)}
+                          placeholder="เขียนข้อคิดเห็นหรือคำแนะนำสำหรับกลุ่มนี้..."
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500"
+                        />
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setRubricBooking(null)}
+                          className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSubmittingRubric}
+                          className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white text-xs font-bold shadow-md shadow-brand-500/20 cursor-pointer disabled:opacity-50 transition-all"
+                        >
+                          {isSubmittingRubric ? "กำลังบันทึก..." : "บันทึกคะแนนประเมิน"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Tab 2: All Committee Scores History */}
+                  {rubricTab === "history" && (
+                    <div className="space-y-3">
+                      {rubricBooking.scores && rubricBooking.scores.length > 0 ? (
+                        <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                          {rubricBooking.scores.map((score, sIdx) => (
+                            <div
+                              key={score.id || sIdx}
+                              className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5"
+                            >
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 font-bold flex items-center justify-center text-xs">
+                                    {sIdx + 1}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-900 dark:text-white text-xs">
+                                      {score.scorer?.full_name || "คณะกรรมการ"}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      {formatDate(score.scored_at)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="text-right">
+                                  <span className="text-base font-bold text-brand-600 dark:text-brand-400 font-en">
+                                    {score.total_score}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400"> คะแนน</span>
+                                </div>
+                              </div>
+
+                              {score.comments && (
+                                <div className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                                  💭 {score.comments}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-950 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                          ยังไม่มีคณะกรรมการท่านใดส่งคะแนนประเมินสำหรับกลุ่มนี้
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </Modal>
           </>
-        );
+        )
       }}
     </DashboardLayout>
-  );
+  )
 }

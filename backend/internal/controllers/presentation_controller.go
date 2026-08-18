@@ -28,12 +28,26 @@ func NewPresentationController(db *gorm.DB, cfg *config.Config, tg *services.Tel
 	return &PresentationController{db: db, cfg: cfg, telegram: tg}
 }
 
+var PeriodTimes = map[int][2]string{
+	1: {"08:30", "09:20"},
+	2: {"09:20", "10:10"},
+	3: {"10:10", "11:00"},
+	4: {"11:00", "11:50"},
+	6: {"12:40", "13:30"},
+	7: {"13:30", "14:20"},
+	8: {"14:20", "15:10"},
+	9: {"15:10", "16:00"},
+}
+
 // ----------------------------------------------------
 // DEFENSE SLOTS
 // ----------------------------------------------------
 
 func (pc *PresentationController) ListSlots(c *fiber.Ctx) error {
 	academicYear := c.Query("academic_year")
+	if academicYear == "" {
+		academicYear = database.GetCurrentAcademicYear(pc.db)
+	}
 
 	query := pc.db.Model(&models.PresentationSlot{}).
 		Preload("Bookings.Group.Members.User").
@@ -41,7 +55,7 @@ func (pc *PresentationController) ListSlots(c *fiber.Ctx) error {
 		Preload("Bookings.Scores.Scorer").
 		Order("start_time ASC")
 
-	if academicYear != "" {
+	if academicYear != "all" && academicYear != "" {
 		query = query.Where("academic_year = ?", academicYear)
 	}
 
@@ -102,6 +116,105 @@ func (pc *PresentationController) CreateSlot(c *fiber.Ctx) error {
 		"success": true,
 		"message": "Presentation slot created successfully",
 		"data":    slot,
+	})
+}
+
+type BatchCreateSlotsRequest struct {
+	Dates        []string `json:"dates"`         // ["2026-08-18", "2026-08-19", ...]
+	Periods      []int    `json:"periods"`       // [1, 2, 3, 4, 6, 7, 8, 9]
+	Location     string   `json:"location"`
+	MaxGroups    int      `json:"max_groups"`
+	AcademicYear string   `json:"academic_year"`
+}
+
+func (pc *PresentationController) BatchCreateSlots(c *fiber.Ctx) error {
+	var req BatchCreateSlotsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request body"})
+	}
+
+	req.Location = strings.TrimSpace(req.Location)
+	if req.Location == "" {
+		req.Location = "Meeting Room"
+	}
+	if req.MaxGroups <= 0 {
+		req.MaxGroups = 1
+	}
+	if req.AcademicYear == "" {
+		req.AcademicYear = database.GetCurrentAcademicYear(pc.db)
+	}
+	if len(req.Dates) == 0 || len(req.Periods) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Dates and periods are required"})
+	}
+
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		loc = time.FixedZone("Asia/Bangkok", 7*3600)
+	}
+
+	var createdSlots []models.PresentationSlot
+	skippedCount := 0
+
+	err = pc.db.Transaction(func(tx *gorm.DB) error {
+		for _, dateStr := range req.Dates {
+			dateStr = strings.TrimSpace(dateStr)
+			if dateStr == "" {
+				continue
+			}
+			for _, period := range req.Periods {
+				times, ok := PeriodTimes[period]
+				if !ok {
+					continue
+				}
+				startTimeStr := fmt.Sprintf("%sT%s:00", dateStr, times[0])
+				endTimeStr := fmt.Sprintf("%sT%s:00", dateStr, times[1])
+
+				startTime, err1 := time.ParseInLocation("2006-01-02T15:04:05", startTimeStr, loc)
+				endTime, err2 := time.ParseInLocation("2006-01-02T15:04:05", endTimeStr, loc)
+				if err1 != nil || err2 != nil {
+					continue
+				}
+
+				// Check duplicate
+				var existingCount int64
+				tx.Model(&models.PresentationSlot{}).
+					Where("academic_year = ? AND location = ? AND start_time = ?", req.AcademicYear, req.Location, startTime).
+					Count(&existingCount)
+				if existingCount > 0 {
+					skippedCount++
+					continue
+				}
+
+				slot := models.PresentationSlot{
+					AcademicYear: req.AcademicYear,
+					StartTime:    startTime,
+					EndTime:      endTime,
+					Location:     req.Location,
+					MaxGroups:    req.MaxGroups,
+				}
+				if err := tx.Create(&slot).Error; err != nil {
+					return err
+				}
+				createdSlots = append(createdSlots, slot)
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to create batch presentation slots"})
+	}
+
+	userID, _ := c.Locals("userID").(uuid.UUID)
+	userRole, _ := c.Locals("userRole").(models.UserRole)
+	services.LogActivity(pc.db, &userID, string(userRole), "BATCH_CREATE_PRESENTATION_SLOTS", fmt.Sprintf("Created %d slots (skipped %d existing) at %s for Year %s", len(createdSlots), skippedCount, req.Location, req.AcademicYear), c.IP())
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success":       true,
+		"message":       fmt.Sprintf("สร้างรอบนำเสนอเรียบร้อยแล้ว %d รอบ (ข้ามรอบซ้ำ %d รอบ)", len(createdSlots), skippedCount),
+		"created_count": len(createdSlots),
+		"skipped_count": skippedCount,
+		"data":          createdSlots,
 	})
 }
 
