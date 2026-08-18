@@ -975,6 +975,16 @@ export default function AdminPage() {
     }
   };
 
+  // Helper to validate real classroom name format
+  const isValidRoom = (r?: string | null): r is string => {
+    if (!r) return false
+    const trimmed = r.trim().toLowerCase()
+    if (trimmed.includes("`") || trimmed === "room" || trimmed === "null" || trimmed === "undefined") {
+      return false
+    }
+    return true
+  }
+
   // 9. Criteria Management (CRUD, Toggle, Reorder)
   const handleSaveCriteria = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1081,7 +1091,7 @@ export default function AdminPage() {
     new Set([
       ...users.map((u) => u.room),
       ...groups.map((g) => g.room)
-    ].filter((r): r is string => Boolean(r)))
+    ].filter(isValidRoom))
   ).sort(compareRooms)
 
   // Standard rooms (M.6) and dynamic rooms for teacher assignment
@@ -1094,7 +1104,7 @@ export default function AdminPage() {
       ...availableRooms,
       ...teachers.flatMap((t) => (t.teacher_assignments || []).map((a) => a.room)),
       ...selectedAssignRooms
-    ])
+    ].filter(isValidRoom))
   ).sort(compareRooms)
 
   // Dynamically extract available academic years for users
