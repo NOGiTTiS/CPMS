@@ -88,6 +88,7 @@ export default function StudentPage() {
   const [isSubmittingEditGroup, setIsSubmittingEditGroup] = useState(false);
 
   // Multi-Select Add Members
+  const [maxMembersLimit, setMaxMembersLimit] = useState<number>(3);
   const [availableStudents, setAvailableStudents] = useState<User[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [filterRoom, setFilterRoom] = useState("");
@@ -108,8 +109,11 @@ export default function StudentPage() {
       setIsLoading(true);
       // 1. Get my group
       try {
-        const groupRes = await api.get<{ data?: ProjectGroup; group?: ProjectGroup }>("/groups/my-group");
+        const groupRes = await api.get<{ data?: ProjectGroup; group?: ProjectGroup; max_members?: number }>("/groups/my-group");
         const myGroup = groupRes?.data || groupRes?.group || null;
+        if (typeof groupRes?.max_members === "number" && groupRes.max_members > 0) {
+          setMaxMembersLimit(groupRes.max_members);
+        }
         if (myGroup) {
           setGroup(myGroup);
           // Fetch submissions for this group
@@ -121,6 +125,17 @@ export default function StudentPage() {
         }
       } catch {
         setGroup(null);
+      }
+
+      // Also get public settings to ensure maxMembersLimit is populated
+      try {
+        const setRes = await api.get<{ data?: Record<string, string> }>("/settings/public");
+        const maxMem = parseInt(setRes?.data?.["max_members_per_group"] || "", 10);
+        if (!isNaN(maxMem) && maxMem > 0) {
+          setMaxMembersLimit(maxMem);
+        }
+      } catch {
+        // Fallback
       }
 
       // 2. Get steps
@@ -618,15 +633,15 @@ export default function StudentPage() {
                           </div>
                           <div>
                             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                              สมาชิกในกลุ่ม ({group.members?.length || 0}/3 คน)
+                              สมาชิกในกลุ่ม ({group.members?.length || 0}/{maxMembersLimit} คน)
                             </h3>
                             <p className="text-[11px] text-slate-400">
-                              สูงสุด 3 คนต่อกลุ่ม
+                              สูงสุด {maxMembersLimit} คนต่อกลุ่ม
                             </p>
                           </div>
                         </div>
 
-                        {(group.members?.length || 0) < 3 && (
+                        {(group.members?.length || 0) < maxMembersLimit && (
                           <button
                             onClick={handleOpenAddMember}
                             className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -1291,7 +1306,6 @@ export default function StudentPage() {
               maxWidth="2xl"
             >
               {(() => {
-                const maxMembersLimit = 3
                 const currentMembersCount = group?.members?.length || 1
                 const remainingSlots = Math.max(0, maxMembersLimit - currentMembersCount)
                 const filteredStudents = availableStudents.filter((s) => {

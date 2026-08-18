@@ -888,7 +888,7 @@ export default function AdminPage() {
   const handleUpdateSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.put("/admin/settings", { settings });
+      await api.put("/admin/settings", settings);
       toast.success("บันทึกการตั้งค่าระบบเรียบร้อย");
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "บันทึกการตั้งค่าไม่สำเร็จ";
@@ -900,7 +900,10 @@ export default function AdminPage() {
   const handleTestTelegram = async () => {
     setIsTestingTelegram(true);
     try {
-      const res = await api.post<{ message: string }>("/admin/settings/test-telegram");
+      const res = await api.post<{ message: string }>("/admin/settings/test-telegram", {
+        bot_token: settings.telegram_bot_token || "",
+        chat_id: settings.telegram_chat_id || "",
+      });
       toast.success(res.message || "ส่งข้อความทดสอบ Telegram สำเร็จ");
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "ทดสอบ Telegram ล้มเหลว";

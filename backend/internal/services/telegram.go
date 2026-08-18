@@ -30,6 +30,9 @@ func (s *TelegramService) GetTelegramCredentials() (token, chatID string, enable
 	var enabledSetting, tokenSetting, chatSetting models.SystemSetting
 	_ = s.db.Where("key = ?", "telegram_bot_enabled").First(&enabledSetting).Error
 	_ = s.db.Where("key = ?", "telegram_bot_token").First(&tokenSetting).Error
+	if tokenSetting.Value == "" {
+		_ = s.db.Where("key = ?", "telegram_api_token").First(&tokenSetting).Error
+	}
 	_ = s.db.Where("key = ?", "telegram_chat_id").First(&chatSetting).Error
 
 	enabled = enabledSetting.Value == "true" || enabledSetting.Value == "1"

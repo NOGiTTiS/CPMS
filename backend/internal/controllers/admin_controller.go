@@ -662,6 +662,42 @@ func (ac *AdminController) GetSettings(c *fiber.Ctx) error {
 		settingsMap[s.Key] = s.Value
 	}
 
+	// Legacy fallback support for telegram_bot_token if only telegram_api_token is present
+	if settingsMap["telegram_bot_token"] == "" && settingsMap["telegram_api_token"] != "" {
+		settingsMap["telegram_bot_token"] = settingsMap["telegram_api_token"]
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    settingsMap,
+	})
+}
+
+func (ac *AdminController) GetPublicSettings(c *fiber.Ctx) error {
+	var settings []models.SystemSetting
+	if err := ac.db.Find(&settings).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to load settings"})
+	}
+
+	publicKeys := map[string]bool{
+		"system_name":             true,
+		"system_description":      true,
+		"institute_name":          true,
+		"max_members_per_group":   true,
+		"submission_mode":         true,
+		"site_logo":               true,
+		"site_favicon":            true,
+		"site_copyright":          true,
+		"show_scores_to_students": true,
+	}
+
+	settingsMap := make(map[string]string)
+	for _, s := range settings {
+		if publicKeys[s.Key] {
+			settingsMap[s.Key] = s.Value
+		}
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    settingsMap,
@@ -669,12 +705,33 @@ func (ac *AdminController) GetSettings(c *fiber.Ctx) error {
 }
 
 func (ac *AdminController) UpdateSettings(c *fiber.Ctx) error {
-	var body map[string]string
-	if err := c.BodyParser(&body); err != nil {
+	var rawBody map[string]interface{}
+	if err := c.BodyParser(&rawBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Invalid request body"})
 	}
 
-	for k, v := range body {
+	settingsToUpdate := make(map[string]string)
+
+	// Check if wrapped in "settings" key: { "settings": { ... } }
+	if nestedSettings, ok := rawBody["settings"].(map[string]interface{}); ok {
+		for k, v := range nestedSettings {
+			if v != nil {
+				settingsToUpdate[k] = fmt.Sprint(v)
+			}
+		}
+	} else {
+		// Flat map: { "system_name": "...", ... }
+		for k, v := range rawBody {
+			if k == "settings" {
+				continue
+			}
+			if v != nil {
+				settingsToUpdate[k] = fmt.Sprint(v)
+			}
+		}
+	}
+
+	for k, v := range settingsToUpdate {
 		var setting models.SystemSetting
 		if err := ac.db.Where("key = ?", k).First(&setting).Error; err == nil {
 			setting.Value = v
@@ -695,6 +752,7 @@ func (ac *AdminController) UpdateSettings(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "System settings updated successfully",
+		"data":    settingsToUpdate,
 	})
 }
 

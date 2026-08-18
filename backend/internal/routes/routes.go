@@ -66,6 +66,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	academicYearsGroup.Use(middleware.AuthRequired(cfg))
 	academicYearsGroup.Get("/active", adminCtrl.ListActiveAcademicYears)
 
+	settingsGroup := api.Group("/settings")
+	settingsGroup.Use(middleware.AuthRequired(cfg))
+	settingsGroup.Get("/public", adminCtrl.GetPublicSettings)
+
 	// ----------------------------------------------------
 	// 4. PROJECT GROUPS
 	// ----------------------------------------------------

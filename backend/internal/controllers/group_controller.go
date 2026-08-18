@@ -190,10 +190,19 @@ func (gc *GroupController) GetMyGroup(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "message": "Group not found"})
 	}
 
+	var maxMembersSetting models.SystemSetting
+	maxMembers := 3
+	if err := gc.db.Where("key = ?", "max_members_per_group").First(&maxMembersSetting).Error; err == nil {
+		if val, err := strconv.Atoi(maxMembersSetting.Value); err == nil && val > 0 {
+			maxMembers = val
+		}
+	}
+
 	return c.JSON(fiber.Map{
-		"success":   true,
-		"is_leader": member.IsLeader,
-		"data":      group,
+		"success":     true,
+		"is_leader":   member.IsLeader,
+		"max_members": maxMembers,
+		"data":        group,
 	})
 }
 
