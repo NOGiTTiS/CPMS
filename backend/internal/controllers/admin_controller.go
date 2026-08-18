@@ -881,6 +881,10 @@ func (ac *AdminController) GetPublicSettings(c *fiber.Ctx) error {
 		"site_copyright":          true,
 		"show_scores_to_students": true,
 		"telegram_bot_enabled":    true,
+		"system_version":          true,
+		"deployment_status":       true,
+		"lan_url":                 true,
+		"cloudflare_url":          true,
 	}
 
 	settingsMap := make(map[string]string)
@@ -896,6 +900,18 @@ func (ac *AdminController) GetPublicSettings(c *fiber.Ctx) error {
 	}
 	if _, ok := settingsMap["show_scores_to_students"]; !ok {
 		settingsMap["show_scores_to_students"] = "true"
+	}
+	if _, ok := settingsMap["system_version"]; !ok {
+		settingsMap["system_version"] = "v1.0"
+	}
+	if _, ok := settingsMap["deployment_status"]; !ok {
+		settingsMap["deployment_status"] = "พร้อมใช้งานบน LAN และ Cloudflare"
+	}
+	if _, ok := settingsMap["lan_url"]; !ok {
+		settingsMap["lan_url"] = "http://cpms.local"
+	}
+	if _, ok := settingsMap["cloudflare_url"]; !ok {
+		settingsMap["cloudflare_url"] = "https://cpms.tn.ac.th"
 	}
 
 	return c.JSON(fiber.Map{

@@ -72,7 +72,13 @@ import {
   Info,
   Save,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Wifi,
+  Cloud,
+  Server,
+  Activity,
+  Terminal,
+  ExternalLink
 } from "lucide-react"
 
 export default function AdminPage() {
@@ -3293,6 +3299,71 @@ export default function AdminPage() {
                   </div>
                 </div>
 
+                {/* TU-North CPMS v1.0 & LAN/Cloudflare Deployment Status Banner */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-brand-500 via-brand-600 to-indigo-700 text-white rounded-3xl p-6 sm:p-7 shadow-lg shadow-brand-500/20 space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold font-en tracking-wide uppercase shadow-xs">
+                          {settings["system_version"] || "TU-North CPMS v1.0"}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-400/20 text-emerald-100 border border-emerald-300/30 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                          {settings["deployment_status"] || "พร้อมใช้งานบน LAN และ Cloudflare"}
+                        </span>
+                      </div>
+                      <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                        {settings["system_name"] || "TU-North CPMS"}
+                      </h3>
+                      <p className="text-xs text-white/80 max-w-xl">
+                        {settings["system_description"] || "ระบบจัดการโครงงานคอมพิวเตอร์ โรงเรียนเตรียมอุดมศึกษา ภาคเหนือ"}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                      <a
+                        href={settings["lan_url"] || "http://cpms.local"}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 bg-white text-slate-900 hover:bg-slate-100 font-bold px-3.5 py-2 rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Wifi className="w-3.5 h-3.5 text-brand-600" />
+                        <span>เปิด LAN ({settings["lan_url"] ? settings["lan_url"].replace(/^https?:\/\//, "") : "cpms.local"})</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </a>
+                      <a
+                        href={settings["cloudflare_url"] || "https://cpms.tn.ac.th"}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 bg-brand-900/40 hover:bg-brand-900/60 border border-white/20 text-white font-bold px-3.5 py-2 rounded-xl text-xs backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Cloud className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Cloudflare Tunnel</span>
+                        <ExternalLink className="w-3 h-3 text-white/70" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-white/10 text-xs text-white/90">
+                    <div className="flex items-center gap-2">
+                      <Server className="w-3.5 h-3.5 text-white/60 shrink-0" />
+                      <span>Backend: <b className="font-en">Go Fiber 2.52</b></span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-3.5 h-3.5 text-white/60 shrink-0" />
+                      <span>Database: <b className="font-en">PostgreSQL 17</b></span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Terminal className="w-3.5 h-3.5 text-white/60 shrink-0" />
+                      <span>Frontend: <b className="font-en">Next.js 16</b></span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-3.5 h-3.5 text-white/60 shrink-0" />
+                      <span>Deployment: <b className="font-en">Docker & Nginx</b></span>
+                    </div>
+                  </div>
+                </div>
+
                 <form onSubmit={handleUpdateSettings} className="space-y-6">
                   {/* SECTION 1: ข้อมูลทั่วไป (General) */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
@@ -3843,6 +3914,101 @@ export default function AdminPage() {
                           placeholder="เช่น -100123456789 หรือ Chat ID ส่วนตัว"
                           className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-en"
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 6: ข้อมูลเวอร์ชันและการเชื่อมต่อเครือข่าย (System Version & Network Deployment) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold text-sm">
+                        <Server className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          6. ข้อมูลเวอร์ชันและการเชื่อมต่อเครือข่าย (System Version & Network Deployment)
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          กำหนดเวอร์ชันระบบ ข้อความสถานะ และที่อยู่ URL สำหรับการเข้าใช้งานผ่าน LAN และ Cloudflare
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          เวอร์ชันระบบ (System Version)
+                        </label>
+                        <input
+                          type="text"
+                          value={settings["system_version"] ?? "v1.0"}
+                          onChange={(e) => setSettings({ ...settings, system_version: e.target.value })}
+                          placeholder="v1.0"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-en"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          สถานะการทำงาน (Deployment Status)
+                        </label>
+                        <input
+                          type="text"
+                          value={settings["deployment_status"] ?? "พร้อมใช้งานบน LAN และ Cloudflare"}
+                          onChange={(e) => setSettings({ ...settings, deployment_status: e.target.value })}
+                          placeholder="พร้อมใช้งานบน LAN และ Cloudflare"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <Wifi className="w-3.5 h-3.5 text-brand-500" />
+                          ที่อยู่เครือข่ายภายในโรงเรียน (LAN URL)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={settings["lan_url"] ?? "http://cpms.local"}
+                            onChange={(e) => setSettings({ ...settings, lan_url: e.target.value })}
+                            placeholder="http://cpms.local หรือ http://192.168.1.xxx:8009"
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-en"
+                          />
+                          <a
+                            href={settings["lan_url"] || "http://cpms.local"}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
+                            title="เปิดลิงก์ LAN"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <Cloud className="w-3.5 h-3.5 text-blue-500" />
+                          ที่อยู่ออนไลน์ภายนอก (Cloudflare Public URL)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={settings["cloudflare_url"] ?? "https://cpms.tn.ac.th"}
+                            onChange={(e) => setSettings({ ...settings, cloudflare_url: e.target.value })}
+                            placeholder="https://cpms.tn.ac.th"
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-en"
+                          />
+                          <a
+                            href={settings["cloudflare_url"] || "https://cpms.tn.ac.th"}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
+                            title="เปิดลิงก์ Cloudflare"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>

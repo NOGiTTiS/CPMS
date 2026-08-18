@@ -31,6 +31,7 @@ export function Navbar({ onToggleSidebar, isSidebarOpen }: NavbarProps) {
   const [siteLogo, setSiteLogo] = useState("")
   const [systemName, setSystemName] = useState("TU-North CPMS")
   const [instituteName, setInstituteName] = useState("Computer Project Management System")
+  const [systemVersion, setSystemVersion] = useState("v1.0")
 
   const loadBranding = () => {
     api.get<{ data?: Record<string, string> }>("/settings/public")
@@ -40,6 +41,7 @@ export function Navbar({ onToggleSidebar, isSidebarOpen }: NavbarProps) {
         else setSiteLogo("")
         if (d["system_name"]) setSystemName(d["system_name"])
         if (d["institute_name"]) setInstituteName(d["institute_name"])
+        if (d["system_version"]) setSystemVersion(d["system_version"])
       })
       .catch(() => {})
   }
@@ -137,9 +139,14 @@ export function Navbar({ onToggleSidebar, isSidebarOpen }: NavbarProps) {
                 </div>
               )}
               <div className="hidden sm:block">
-                <h1 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight">
-                  {systemName}
-                </h1>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight">
+                    {systemName}
+                  </h1>
+                  <span className="bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 border border-brand-200/60 dark:border-brand-900/60 text-[10px] font-bold px-1.5 py-0.2 rounded-md font-en">
+                    {systemVersion}
+                  </span>
+                </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-en">
                   {instituteName}
                 </p>
