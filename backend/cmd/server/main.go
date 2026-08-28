@@ -27,12 +27,11 @@ func main() {
 	// 3. Connect to Database & AutoMigrate
 	db, err := database.ConnectDB(cfg)
 	if err != nil {
-		log.Printf("Warning: Database connection failed at startup: %v\n", err)
-		log.Println("Server will still start, but database operations will fail until connected.")
-	} else {
-		if err := database.AutoMigrate(db); err != nil {
-			log.Fatalf("Database migration failed: %v", err)
-		}
+		log.Fatalf("Fatal: Database connection failed: %v", err)
+	}
+
+	if err := database.AutoMigrate(db); err != nil {
+		log.Fatalf("Database migration failed: %v", err)
 	}
 
 	// 4. Initialize Fiber App
@@ -48,9 +47,7 @@ func main() {
 	app.Use(middleware.SetupRecover())
 
 	// 6. Setup Application Routes
-	if db != nil {
-		routes.SetupRoutes(app, db, cfg)
-	}
+	routes.SetupRoutes(app, db, cfg)
 
 	// 7. Graceful Shutdown Handler
 	c := make(chan os.Signal, 1)

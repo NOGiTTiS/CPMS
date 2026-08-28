@@ -175,10 +175,11 @@ export interface LoginResponse {
 }
 
 export interface MatrixStepCell {
-  step_id: string;
-  status: SubmissionStatus | "NOT_SUBMITTED";
-  score: number | null;
-  submission_id?: string;
+  step_id: string
+  status: SubmissionStatus | "NOT_SUBMITTED"
+  score: number | null
+  submission_id?: string
+  submission?: Submission
 }
 
 export interface MatrixRow {

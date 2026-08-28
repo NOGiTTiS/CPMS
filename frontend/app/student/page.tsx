@@ -1041,14 +1041,20 @@ export default function StudentPage() {
 
                         {/* Submission History / Feedback */}
                         {sub && (
-                          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200/60 dark:border-slate-800 space-y-2 text-xs">
+                          <div className={`p-4 rounded-2xl border space-y-2 text-xs ${
+                            sub.status === "REJECTED"
+                              ? "bg-rose-50/70 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60"
+                              : sub.status === "APPROVED"
+                              ? "bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200/60 dark:border-emerald-900/40"
+                              : "bg-slate-50 dark:bg-slate-950/80 border border-slate-200/60 dark:border-slate-800"
+                          }`}>
                             <div className="flex flex-wrap justify-between items-center gap-2">
                               <span className="font-semibold text-slate-700 dark:text-slate-300">
                                 ส่งงานรอบที่ {sub.revision_number} · เมื่อ {formatDate(sub.submitted_at)}
                               </span>
                               <div className="flex items-center gap-3">
                                 {showScoresToStudents && sub.score !== null && sub.score !== undefined && (
-                                  <span className="font-bold text-brand-600 dark:text-brand-400">
+                                  <span className="font-bold text-brand-600 dark:text-brand-400 font-mono">
                                     คะแนนที่ได้: {sub.score} / {step.max_score}
                                   </span>
                                 )}
@@ -1057,7 +1063,7 @@ export default function StudentPage() {
                                     href={sub.file_path.startsWith("http") ? sub.file_path : api.getDownloadUrl(sub.file_path)}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-medium"
+                                    className="text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-medium bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-slate-800"
                                   >
                                     {sub.submission_type === "link" ? <LinkIcon className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
                                     เปิดดูงานที่ส่ง
@@ -1086,6 +1092,65 @@ export default function StudentPage() {
                                 <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                                 <span>ต้องผ่านการอนุมัติขั้นตอน &quot;{prevStep?.step_name}&quot; ก่อนส่งงานขั้นตอนนี้</span>
                               </div>
+                            ) : sub?.status === "APPROVED" ? (
+                              <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+                                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                                  🎉 ขั้นตอนนี้ผ่านการอนุมัติเรียบร้อยแล้ว
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {sub.file_path && (
+                                    <a
+                                      href={sub.file_path.startsWith("http") ? sub.file_path : api.getDownloadUrl(sub.file_path)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                                    >
+                                      {sub.submission_type === "link" ? <ExternalLink className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+                                      เปิดดูงานที่ผ่านแล้ว
+                                    </a>
+                                  )}
+                                  <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 px-4 py-2 rounded-xl text-xs font-bold shadow-xs">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                    <span>ผ่านการอนุมัติแล้ว (สำเร็จ)</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : sub?.status === "REJECTED" ? (
+                              <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+                                <span className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                                  ⚠️ งานไม่ผ่านการอนุมัติ กรุณาปรับปรุงตามข้อเสนอแนะและส่งใหม่
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setShowSubmitWork(step)
+                                    setSubmissionType("file")
+                                    setSelectedFile(null)
+                                    setSubmissionLink("")
+                                  }}
+                                  className="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-rose-600/20"
+                                >
+                                  <UploadCloud className="w-4 h-4" />
+                                  ส่งงานแก้ไขใหม่ (รอบที่ {sub.revision_number + 1})
+                                </button>
+                              </div>
+                            ) : sub?.status === "PENDING" ? (
+                              <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+                                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5" /> รอคุณครูตรวจประเมินผลงาน
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setShowSubmitWork(step)
+                                    setSubmissionType("file")
+                                    setSelectedFile(null)
+                                    setSubmissionLink("")
+                                  }}
+                                  className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                                >
+                                  <UploadCloud className="w-4 h-4" />
+                                  แก้ไขไฟล์/ลิงก์ที่ส่ง (ส่งใหม่ก่อนตรวจ)
+                                </button>
+                              </div>
                             ) : (
                               <button
                                 onClick={() => {
@@ -1094,10 +1159,10 @@ export default function StudentPage() {
                                   setSelectedFile(null)
                                   setSubmissionLink("")
                                 }}
-                                className="bg-brand-500 hover:bg-brand-600 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-brand-500/20"
+                                className="bg-brand-500 hover:bg-brand-600 active:scale-95 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-brand-500/20"
                               >
                                 <UploadCloud className="w-4 h-4" />
-                                {sub ? "ส่งงานแก้ไขใหม่ (Resubmit)" : "ส่งงานในขั้นตอนนี้"}
+                                ส่งงานในขั้นตอนนี้
                               </button>
                             )}
                           </div>

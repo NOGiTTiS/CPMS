@@ -57,26 +57,43 @@ func ConnectDB(cfg *config.Config) (*gorm.DB, error) {
 		gormLogLevel = logger.Info
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(gormLogLevel),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	var db *gorm.DB
+	var err error
+	maxRetries := 10
+	retryInterval := 2 * time.Second
+
+	for i := 1; i <= maxRetries; i++ {
+		log.Printf("Connecting to database (attempt %d/%d)...", i, maxRetries)
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+			Logger: logger.Default.LogMode(gormLogLevel),
+		})
+		if err == nil {
+			sqlDB, dbErr := db.DB()
+			if dbErr == nil {
+				if pingErr := sqlDB.Ping(); pingErr == nil {
+					// Connection pool tuning
+					sqlDB.SetMaxIdleConns(10)
+					sqlDB.SetMaxOpenConns(50)
+					sqlDB.SetConnMaxLifetime(1 * time.Hour)
+
+					DB = db
+					log.Println("Database connection established successfully")
+					return db, nil
+				} else {
+					err = pingErr
+				}
+			} else {
+				err = dbErr
+			}
+		}
+
+		if i < maxRetries {
+			log.Printf("Database connection attempt %d failed: %v. Retrying in %v...", i, err, retryInterval)
+			time.Sleep(retryInterval)
+		}
 	}
 
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get generic database object: %w", err)
-	}
-
-	// Connection pool tuning
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(50)
-	sqlDB.SetConnMaxLifetime(1 * time.Hour)
-
-	DB = db
-	log.Println("Database connection established successfully")
-	return db, nil
+	return nil, fmt.Errorf("failed to connect to database after %d attempts: %w", maxRetries, err)
 }
 
 func AutoMigrate(db *gorm.DB) error {

@@ -75,6 +75,7 @@ func (tc *TeacherController) GetPendingSubmissionsQueue(c *fiber.Ctx) error {
 		academicYear = database.GetCurrentAcademicYear(tc.db)
 	}
 	room := strings.TrimSpace(c.Query("room"))
+	statusParam := strings.ToLower(strings.TrimSpace(c.Query("status")))
 
 	query := tc.db.Model(&models.Submission{}).
 		Preload("Group.Members.User").
@@ -82,9 +83,24 @@ func (tc *TeacherController) GetPendingSubmissionsQueue(c *fiber.Ctx) error {
 		Preload("Step").
 		Preload("Submitter").
 		Joins("JOIN project_groups ON project_groups.id = submissions.group_id").
-		Where("submissions.status = ?", models.SubmissionStatusPending).
-		Where("project_groups.academic_year = ?", academicYear).
-		Order("submissions.submitted_at ASC")
+		Where("project_groups.academic_year = ?", academicYear)
+
+	switch statusParam {
+	case "reviewed":
+		query = query.Where("submissions.status IN (?)", []models.SubmissionStatus{models.SubmissionStatusApproved, models.SubmissionStatusRejected}).
+			Order("submissions.reviewed_at DESC, submissions.submitted_at DESC")
+	case "approved":
+		query = query.Where("submissions.status = ?", models.SubmissionStatusApproved).
+			Order("submissions.reviewed_at DESC, submissions.submitted_at DESC")
+	case "rejected":
+		query = query.Where("submissions.status = ?", models.SubmissionStatusRejected).
+			Order("submissions.reviewed_at DESC, submissions.submitted_at DESC")
+	case "all":
+		query = query.Order("submissions.submitted_at DESC")
+	default: // "pending"
+		query = query.Where("submissions.status = ?", models.SubmissionStatusPending).
+			Order("submissions.submitted_at ASC")
+	}
 
 	if userRole != models.RoleAdmin {
 		// Find rooms assigned to this teacher in this academic year
@@ -106,15 +122,15 @@ func (tc *TeacherController) GetPendingSubmissionsQueue(c *fiber.Ctx) error {
 		query = query.Where("project_groups.room = ?", room)
 	}
 
-	var pending []models.Submission
-	if err := query.Find(&pending).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to fetch pending queue"})
+	var list []models.Submission
+	if err := query.Find(&list).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to fetch submissions queue"})
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"count":   len(pending),
-		"data":    pending,
+		"count":   len(list),
+		"data":    list,
 	})
 }
 
@@ -136,6 +152,7 @@ func (tc *TeacherController) GetClassProgressMatrix(c *fiber.Ctx) error {
 		Preload("Advisor").
 		Preload("Members.User").
 		Preload("Submissions.Step").
+		Preload("Submissions.Submitter").
 		Where("academic_year = ?", academicYear)
 
 	if room != "" {

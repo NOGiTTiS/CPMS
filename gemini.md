@@ -159,6 +159,12 @@ D:\TUNorth
   - [x] ตั้งค่า `.gitignore` เพื่อยกเว้น `old_system/`, build outputs, binaries, และ `.env`
   - [x] Push ซอร์สโค้ดและเอกสารทั้งหมดขึ้น GitHub Repository (`https://github.com/NOGiTTiS/CPMS.git`)
   - [x] จัดทำเอกสารสรุปผลและคู่มือการใช้งาน (`docs/spec.md`, `gemini.md`, `HANDOVER_SUMMARY.md`, `walkthrough.md`)
+- [x] **Phase 4.1: การปรับปรุงระบบตรวจงานและการให้บริการไฟล์ (Submission Review & File Service Enhancements)** *(Completed & Verified)*
+  - [x] เพิ่มแท็บตัวกรองในคิวตรวจงานครู (`รอตรวจ`, `ตรวจแล้ว`, `ทั้งหมด`) พร้อมปุ่ม "ดูผลงาน / แก้ไขผลตรวจ"
+  - [x] ปรับช่องตารางความก้าวหน้า (Classroom Progress Matrix) ให้เป็น Interactive Clickable Cell เปิดดู/แก้ไขผลตรวจได้ทันที
+  - [x] ปรับปรุงฝั่งนักเรียน ล็อกขั้นตอนที่ผ่านแล้ว (`APPROVED`) ป้องกันส่งซ้ำ และไฮไลต์คอมเมนต์งานที่ต้องแก้ไข (`REJECTED`)
+  - [x] ปรับปรุง Backend `DownloadFile` ค้นหา Path ละเอียด, รองรับ Inline PDF Preview, และหน้าแจ้งเตือน HTML สวยงามกรณีไม่มีไฟล์จริง
+  - [x] บันทึกเอกสารความต้องการและโซลูชันใน [`docs/review_and_download_fix_notes.md`](docs/review_and_download_fix_notes.md)
 
 ---
 

@@ -28,13 +28,10 @@ import {
   XCircle, 
   Filter, 
   School, 
-  Eye, 
-  Send, 
   FileText, 
   Link as LinkIcon, 
   MapPin, 
   Users, 
-  UserCheck, 
   Download,
   CalendarRange,
   Calendar,
@@ -43,8 +40,6 @@ import {
   ExternalLink,
   LayoutGrid,
   List,
-  Sparkles,
-  Info,
   Edit3
 } from "lucide-react"
 
@@ -54,6 +49,7 @@ export default function TeacherPage() {
   const [selectedRoom, setSelectedRoom] = useState<string>("")
   const [activeYears, setActiveYears] = useState<AcademicYear[]>([])
   const [selectedYear, setSelectedYear] = useState<string>("2568")
+  const [queueFilter, setQueueFilter] = useState<"PENDING" | "REVIEWED" | "ALL">("PENDING")
   const [queue, setQueue] = useState<Submission[]>([])
   const [matrix, setMatrix] = useState<MatrixRow[]>([])
   const [steps, setSteps] = useState<ProjectStep[]>([])
@@ -134,7 +130,7 @@ export default function TeacherPage() {
     fetchTeacherData()
   }, [fetchTeacherData])
 
-  // 2. Fetch Assigned Rooms, Queue, Matrix, and Slots whenever selectedYear or selectedRoom changes
+  // 2. Fetch Assigned Rooms, Queue, Matrix, and Slots whenever selectedYear, selectedRoom or queueFilter changes
   const fetchRoomSpecificData = useCallback(async () => {
     try {
       const yr = selectedYear || "2568"
@@ -157,10 +153,12 @@ export default function TeacherPage() {
         setSlots(slotsList)
       }
 
-      // Pending Queue
+      // Submissions Queue with status filter
+      const queueStatusParam = queueFilter === "REVIEWED" ? "reviewed" : queueFilter === "ALL" ? "all" : "pending"
       const queueRes = await api.get<{ data?: Submission[]; queue?: Submission[] }>("/teacher/queue", {
         academic_year: yr,
         room: selectedRoom || undefined,
+        status: queueStatusParam,
       })
       const queueList = queueRes?.data || queueRes?.queue || []
       if (Array.isArray(queueList)) {
@@ -193,8 +191,13 @@ export default function TeacherPage() {
               status: sub.status,
               score: sub.score !== undefined && sub.score !== null ? Number(sub.score) : null,
               submission_id: sub.id,
+              submission: {
+                ...sub,
+                group: g,
+                step: g.submissions?.find((s) => s.step_id === sub.step_id)?.step || steps.find((s) => s.id === sub.step_id),
+              },
             }
-            if (sub.score !== undefined && sub.score !== null) {
+            if (sub.score !== undefined && sub.score !== null && sub.status === "APPROVED") {
               totalScore += Number(sub.score)
             }
           })
@@ -224,42 +227,50 @@ export default function TeacherPage() {
     } catch {
       // Ignore
     }
-  }, [selectedRoom, selectedYear])
+  }, [selectedRoom, selectedYear, queueFilter, steps])
 
   useEffect(() => {
     fetchRoomSpecificData()
   }, [fetchRoomSpecificData])
 
-  // Open review modal
+  // Open review modal with prefilled data
   const handleOpenReview = (sub: Submission) => {
-    setReviewSubmission(sub);
-    setReviewStatus("APPROVED");
-    setReviewScore(sub.step?.max_score || 10);
-    setReviewComment(sub.comment || "");
-  };
+    setReviewSubmission(sub)
+    setReviewStatus(sub.status === "REJECTED" ? "REJECTED" : "APPROVED")
+    if (sub.score !== undefined && sub.score !== null) {
+      setReviewScore(Number(sub.score))
+    } else {
+      setReviewScore(sub.step?.max_score || 10)
+    }
+    setReviewComment(sub.comment || "")
+  }
 
   const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reviewSubmission) return;
+    e.preventDefault()
+    if (!reviewSubmission) return
 
-    setIsSubmittingReview(true);
+    setIsSubmittingReview(true)
     try {
       await api.put(`/submissions/${reviewSubmission.id}/review`, {
         status: reviewStatus,
         score: Number(reviewScore),
         comment: reviewComment.trim(),
-      });
+      })
 
-      toast.success("บันทึกผลการตรวจงานเรียบร้อยแล้ว");
-      setReviewSubmission(null);
-      fetchRoomSpecificData();
+      toast.success(
+        reviewSubmission.reviewed_at
+          ? "อัปเดตและแก้ไขผลการตรวจงานเรียบร้อยแล้ว"
+          : "บันทึกผลการตรวจงานเรียบร้อยแล้ว"
+      )
+      setReviewSubmission(null)
+      fetchRoomSpecificData()
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "บันทึกผลตรวจไม่สำเร็จ";
-      toast.error(errorMsg);
+      const errorMsg = err instanceof Error ? err.message : "บันทึกผลตรวจไม่สำเร็จ"
+      toast.error(errorMsg)
     } finally {
-      setIsSubmittingReview(false);
+      setIsSubmittingReview(false)
     }
-  };
+  }
 
   // Period constants & Timetable helpers
   const PERIODS = [
@@ -520,19 +531,65 @@ export default function TeacherPage() {
               {/* ==================== TAB 1: QUEUE ==================== */}
               {activeTab === "queue" && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                     <div>
                       <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <ListOrdered className="w-4 h-4 text-brand-500" />
-                        คิวงานรอตรวจ (Pending Submissions Queue)
+                        {queueFilter === "PENDING" && "คิวงานรอตรวจ (Pending Submissions Queue)"}
+                        {queueFilter === "REVIEWED" && "รายการงานที่ตรวจแล้ว (Reviewed Submissions)"}
+                        {queueFilter === "ALL" && "รายการส่งงานทั้งหมด (All Submissions)"}
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        รายการงานที่นักเรียนส่งเข้ามาและรอการอนุมัติ/ให้คะแนน
+                        {queueFilter === "PENDING" && "รายการงานที่นักเรียนส่งเข้ามาและรอการอนุมัติ/ให้คะแนน"}
+                        {queueFilter === "REVIEWED" && "รายการงานที่ได้รับการประเมินแล้ว สามารถเปิดดูและแก้ไขผลตรวจได้"}
+                        {queueFilter === "ALL" && "รายการส่งงานทั้งหมดในห้องเรียนและปีการศึกษาที่เลือก"}
                       </p>
                     </div>
-                    <span className="bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-xs font-bold px-3 py-1 rounded-xl">
-                      รอตรวจ {queue.length} รายการ
-                    </span>
+
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl gap-1">
+                      <button
+                        onClick={() => setQueueFilter("PENDING")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          queueFilter === "PENDING"
+                            ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        รอตรวจ
+                        <span className="bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold">
+                          {queueFilter === "PENDING" ? queue.length : "•"}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setQueueFilter("REVIEWED")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          queueFilter === "REVIEWED"
+                            ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        ตรวจแล้ว
+                        <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold">
+                          {queueFilter === "REVIEWED" ? queue.length : "•"}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setQueueFilter("ALL")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          queueFilter === "ALL"
+                            ? "bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        ทั้งหมด
+                        <span className="bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold">
+                          {queueFilter === "ALL" ? queue.length : "•"}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
                   {queue.length === 0 ? (
@@ -540,9 +597,15 @@ export default function TeacherPage() {
                       <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-500 mx-auto flex items-center justify-center">
                         <CheckCircle2 className="w-6 h-6" />
                       </div>
-                      <h4 className="font-bold text-slate-900 dark:text-white">ไม่มีงานค้างตรวจ</h4>
+                      <h4 className="font-bold text-slate-900 dark:text-white">
+                        {queueFilter === "PENDING" && "ไม่มีงานค้างตรวจ"}
+                        {queueFilter === "REVIEWED" && "ยังไม่มีรายการงานที่ตรวจแล้ว"}
+                        {queueFilter === "ALL" && "ไม่พบข้อมูลการส่งงาน"}
+                      </h4>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        งานทั้งหมดในห้องที่คุณเลือกได้รับการตรวจเรียบร้อยแล้ว
+                        {queueFilter === "PENDING" && "งานทั้งหมดในห้องที่คุณเลือกได้รับการตรวจเรียบร้อยแล้ว"}
+                        {queueFilter === "REVIEWED" && "เมื่อมีการตรวจงานและให้คะแนน รายการจะปรากฏที่นี่"}
+                        {queueFilter === "ALL" && "ยังไม่มีกลุ่มโครงงานส่งงานในเงื่อนไขที่เลือก"}
                       </p>
                     </div>
                   ) : (
@@ -554,7 +617,7 @@ export default function TeacherPage() {
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 text-xs font-bold px-2.5 py-0.5 rounded-md">
                                   ห้อง ม.{sub.group?.room || "-"}
                                 </span>
@@ -567,18 +630,58 @@ export default function TeacherPage() {
                               </p>
                             </div>
 
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-bold px-2.5 py-1 rounded-xl flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5" /> รอบที่ {sub.revision_number}
-                              </span>
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              {sub.status === "APPROVED" && (
+                                <span className="text-xs bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold px-3 py-1 rounded-xl flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  ผ่าน (Approved){sub.score !== null && sub.score !== undefined ? ` · ${sub.score}/${sub.step?.max_score} คะแนน` : ""}
+                                </span>
+                              )}
+                              {sub.status === "REJECTED" && (
+                                <span className="text-xs bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold px-3 py-1 rounded-xl flex items-center gap-1">
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  ต้องแก้ไข (Rejected)
+                                </span>
+                              )}
+                              {sub.status === "PENDING" && (
+                                <span className="text-xs bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-bold px-2.5 py-1 rounded-xl flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5" /> รอบที่ {sub.revision_number}
+                                </span>
+                              )}
+
                               <button
                                 onClick={() => handleOpenReview(sub)}
-                                className="bg-brand-500 hover:bg-brand-600 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+                                className={`px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                                  sub.status === "PENDING"
+                                    ? "bg-brand-500 hover:bg-brand-600 text-white shadow-brand-500/20"
+                                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-900/60"
+                                }`}
                               >
-                                ตรวจงาน / ให้คะแนน <ChevronRight className="w-4 h-4" />
+                                {sub.status === "PENDING" ? (
+                                  <>
+                                    ตรวจงาน / ให้คะแนน <ChevronRight className="w-4 h-4" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <Edit3 className="w-3.5 h-3.5" /> ดูผลงาน / แก้ไขผลตรวจ
+                                  </>
+                                )}
                               </button>
                             </div>
                           </div>
+
+                          {/* Review Comment display if available */}
+                          {sub.comment && (
+                            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
+                              <span className="font-bold text-slate-800 dark:text-slate-200">ข้อเสนอแนะที่บันทึกไว้: </span>
+                              <span>{sub.comment}</span>
+                              {sub.reviewed_at && (
+                                <span className="text-[10px] text-slate-400 ml-2 font-en">
+                                  (ตรวจเมื่อ {formatDate(sub.reviewed_at)})
+                                </span>
+                              )}
+                            </div>
+                          )}
 
                           {/* File / Link View */}
                           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
@@ -594,6 +697,9 @@ export default function TeacherPage() {
                                 {sub.submission_type === "link" ? "เปิดลิงก์ผลงานภายนอก" : "ดาวน์โหลดไฟล์ผลงาน"}
                               </a>
                             </div>
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              รอบที่ {sub.revision_number}
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -612,7 +718,7 @@ export default function TeacherPage() {
                         ตารางสรุปความก้าวหน้ารายห้อง (Progress Matrix)
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        แสดงสถานะและคะแนนของแต่ละกลุ่มโครงงานในทุกขั้นตอน
+                        แสดงสถานะและคะแนนของแต่ละกลุ่มโครงงานในทุกขั้นตอน (คลิกที่ช่องเพื่อดูผลงานหรือตรวจ/แก้ไขคะแนน)
                       </p>
                     </div>
 
@@ -632,7 +738,7 @@ export default function TeacherPage() {
                             <th className="p-4 min-w-[200px]">กลุ่มโครงงาน / สมาชิก</th>
                             <th className="p-4 min-w-[80px]">ห้อง</th>
                             {steps.map((st) => (
-                              <th key={st.id} className="p-4 text-center min-w-[110px]">
+                              <th key={st.id} className="p-4 text-center min-w-[120px]">
                                 <div>{st.step_name}</div>
                                 <span className="text-[10px] font-normal text-slate-400 font-en">
                                   (เต็ม {st.max_score})
@@ -669,41 +775,68 @@ export default function TeacherPage() {
                                   ม.{row.room || "-"}
                                 </td>
                                 {steps.map((st) => {
-                                  const cell = row.steps[st.id];
+                                  const cell = row.steps[st.id]
                                   if (!cell || cell.status === "NOT_SUBMITTED") {
                                     return (
-                                      <td key={st.id} className="p-4 text-center text-slate-300 dark:text-slate-600">
+                                      <td key={st.id} className="p-4 text-center text-slate-300 dark:text-slate-600 font-mono">
                                         -
                                       </td>
-                                    );
+                                    )
                                   }
-                                  if (cell.status === "PENDING") {
-                                    return (
-                                      <td key={st.id} className="p-4 text-center">
-                                        <span className="inline-block bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                                          รอตรวจ
-                                        </span>
-                                      </td>
-                                    );
-                                  }
-                                  if (cell.status === "REJECTED") {
-                                    return (
-                                      <td key={st.id} className="p-4 text-center">
-                                        <span className="inline-block bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                                          แก้ไข
-                                        </span>
-                                      </td>
-                                    );
-                                  }
+
                                   return (
-                                    <td key={st.id} className="p-4 text-center">
-                                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                                        {cell.score !== null ? cell.score : "✓"}
-                                      </span>
+                                    <td key={st.id} className="p-2 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (cell.submission) {
+                                            handleOpenReview({
+                                              ...cell.submission,
+                                              group: cell.submission.group || {
+                                                id: row.group_id,
+                                                project_name_th: row.project_name_th,
+                                                project_name_en: row.project_name_en,
+                                                room: row.room,
+                                                academic_year: selectedYear,
+                                                created_at: "",
+                                                updated_at: "",
+                                              },
+                                              step: cell.submission.step || st,
+                                            })
+                                          }
+                                        }}
+                                        title={`คลิกเพื่อดูงาน / ตรวจงาน / แก้ไขคะแนน (${st.step_name})`}
+                                        className={`w-full py-2 px-2.5 rounded-2xl transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:scale-105 hover:shadow-md border active:scale-95 ${
+                                          cell.status === "PENDING"
+                                            ? "bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+                                            : cell.status === "REJECTED"
+                                            ? "bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300"
+                                            : "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                                        }`}
+                                      >
+                                        {cell.status === "PENDING" && (
+                                          <span className="text-[11px] font-bold flex items-center gap-1">
+                                            <Clock className="w-3 h-3 text-amber-500" /> รอตรวจ
+                                          </span>
+                                        )}
+                                        {cell.status === "REJECTED" && (
+                                          <span className="text-[11px] font-bold flex items-center gap-1">
+                                            <XCircle className="w-3 h-3 text-rose-500" /> แก้ไข
+                                          </span>
+                                        )}
+                                        {cell.status === "APPROVED" && (
+                                          <span className="text-xs font-bold font-mono">
+                                            {cell.score !== null && cell.score !== undefined ? `${cell.score}` : "✓ ผ่าน"}
+                                          </span>
+                                        )}
+                                        <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium">
+                                          ดู/ตรวจงาน
+                                        </span>
+                                      </button>
                                     </td>
-                                  );
+                                  )
                                 })}
-                                <td className="p-4 text-center font-bold text-sm text-brand-600 dark:text-brand-400">
+                                <td className="p-4 text-center font-bold text-sm text-brand-600 dark:text-brand-400 font-mono">
                                   {formatScore(row.total_score)}
                                 </td>
                               </tr>
@@ -1185,25 +1318,51 @@ export default function TeacherPage() {
             <Modal
               isOpen={!!reviewSubmission}
               onClose={() => setReviewSubmission(null)}
-              title={reviewSubmission ? `ตรวจงาน: ${reviewSubmission.group?.project_name_th}` : undefined}
-              description={reviewSubmission ? `ขั้นตอน: ${reviewSubmission.step?.step_name} (คะแนนเต็ม ${reviewSubmission.step?.max_score})` : undefined}
+              title={
+                reviewSubmission
+                  ? reviewSubmission.reviewed_at
+                    ? `แก้ไขผลการตรวจงาน: ${reviewSubmission.group?.project_name_th}`
+                    : `ตรวจงาน: ${reviewSubmission.group?.project_name_th}`
+                  : undefined
+              }
+              description={
+                reviewSubmission
+                  ? `ขั้นตอน: ${reviewSubmission.step?.step_name} (คะแนนเต็ม ${reviewSubmission.step?.max_score} คะแนน)`
+                  : undefined
+              }
               maxWidth="lg"
             >
               {reviewSubmission && (
                 <div className="space-y-4">
-                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 text-xs space-y-2">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 text-xs space-y-2.5">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500">ผลงานที่นักเรียนส่ง:</span>
+                      <span className="text-slate-500 font-medium">ผลงานที่นักเรียนส่ง:</span>
                       <a
                         href={reviewSubmission.file_path.startsWith("http") ? reviewSubmission.file_path : api.getDownloadUrl(reviewSubmission.file_path)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1"
+                        className="text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1.5 bg-brand-50 dark:bg-brand-950/60 px-3 py-1.5 rounded-xl border border-brand-200 dark:border-brand-900/60"
                       >
                         {reviewSubmission.submission_type === "link" ? <ExternalLink className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
-                        {reviewSubmission.submission_type === "link" ? "เปิดลิงก์ผลงาน" : "ดาวน์โหลดไฟล์"}
+                        {reviewSubmission.submission_type === "link" ? "เปิดลิงก์ผลงานภายนอก" : "ดาวน์โหลด/เปิดดูไฟล์"}
                       </a>
                     </div>
+
+                    <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/60 text-[11px] text-slate-500 dark:text-slate-400">
+                      <span>
+                        ส่งโดย: <span className="font-semibold text-slate-700 dark:text-slate-200">{reviewSubmission.submitter?.full_name || "สมาชิกในกลุ่ม"}</span>
+                      </span>
+                      <span>
+                        ส่งรอบที่ {reviewSubmission.revision_number} · {formatDate(reviewSubmission.submitted_at)}
+                      </span>
+                    </div>
+
+                    {reviewSubmission.reviewed_at && (
+                      <div className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200/40 dark:border-emerald-900/40 flex items-center justify-between">
+                        <span>สถานะปัจจุบัน: <b>{reviewSubmission.status === "APPROVED" ? "ผ่าน (Approved)" : "ต้องแก้ไข (Rejected)"}</b></span>
+                        <span className="font-en">ตรวจล่าสุดเมื่อ: {formatDate(reviewSubmission.reviewed_at)}</span>
+                      </div>
+                    )}
                   </div>
 
                   <form onSubmit={handleSubmitReview} className="space-y-4">
@@ -1279,7 +1438,11 @@ export default function TeacherPage() {
                         disabled={isSubmittingReview}
                         className="flex-1 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-md shadow-brand-500/20 cursor-pointer disabled:opacity-50"
                       >
-                        {isSubmittingReview ? "กำลังบันทึก..." : "บันทึกผลการตรวจ"}
+                        {isSubmittingReview
+                          ? "กำลังบันทึก..."
+                          : reviewSubmission.reviewed_at
+                          ? "บันทึกการแก้ไขผลตรวจ"
+                          : "บันทึกผลการตรวจ"}
                       </button>
                     </div>
                   </form>

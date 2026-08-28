@@ -466,22 +466,130 @@ func (ssc *StepSubmissionController) DownloadFile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid file path")
 	}
 
-	// Candidates list to search for file
+	cleanPath := strings.TrimPrefix(filePath, "/")
+	cleanNoUploads := strings.TrimPrefix(cleanPath, "uploads/")
+
+	// Candidates list to search for file across all possible volume mounts and local dev paths
 	candidates := []string{
-		filepath.Join(ssc.cfg.UploadDir, filePath),
-		filepath.Join(ssc.cfg.UploadDir, strings.TrimPrefix(filePath, "uploads/")),
-		filepath.Join(`D:\TUNorth\apps\cpms\old_system\tunorth-cpms`, filePath),
-		filepath.Join(`../old_system/tunorth-cpms`, filePath),
-		filePath,
+		filepath.Join(ssc.cfg.UploadDir, cleanPath),
+		filepath.Join(ssc.cfg.UploadDir, cleanNoUploads),
+		filepath.Join(ssc.cfg.UploadDir, "submissions", cleanPath),
+		filepath.Join(ssc.cfg.UploadDir, "submissions", cleanNoUploads),
+		filepath.Join(ssc.cfg.UploadDir, "branding", cleanPath),
+		filepath.Join(ssc.cfg.UploadDir, "branding", strings.TrimPrefix(cleanPath, "branding/")),
+		filepath.Join(ssc.cfg.UploadDir, "templates", cleanPath),
+		filepath.Join(ssc.cfg.UploadDir, "templates", strings.TrimPrefix(cleanPath, "templates/")),
+		filepath.Join(ssc.cfg.UploadDir, "legacy", cleanPath),
+		filepath.Join(ssc.cfg.UploadDir, "legacy", cleanNoUploads),
+		filepath.Join("./uploads", cleanPath),
+		filepath.Join("./uploads", cleanNoUploads),
+		filepath.Join("./uploads/submissions", cleanPath),
+		filepath.Join("./uploads/submissions", cleanNoUploads),
+		filepath.Join("../../data/uploads/cpms", cleanPath),
+		filepath.Join("../../data/uploads/cpms", cleanNoUploads),
+		filepath.Join("/var/tunorth_data/uploads", cleanPath),
+		filepath.Join("/var/tunorth_data/uploads", cleanNoUploads),
+		filepath.Join(`D:\TUNorth\data\uploads\cpms`, cleanPath),
+		filepath.Join(`D:\TUNorth\data\uploads\cpms`, cleanNoUploads),
+		filepath.Join(`D:\TUNorth\apps\cpms\backend\uploads`, cleanPath),
+		filepath.Join(`D:\TUNorth\apps\cpms\backend\uploads`, cleanNoUploads),
+		filepath.Join(`D:\TUNorth\apps\cpms\old_system\tunorth-cpms`, cleanPath),
+		filepath.Join(`../old_system/tunorth-cpms`, cleanPath),
+		cleanPath,
 	}
 
 	for _, p := range candidates {
 		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			ext := strings.ToLower(filepath.Ext(p))
+			fileName := filepath.Base(p)
+
+			switch ext {
+			case ".pdf":
+				c.Set("Content-Type", "application/pdf")
+				c.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", fileName))
+			case ".png":
+				c.Set("Content-Type", "image/png")
+			case ".jpg", ".jpeg":
+				c.Set("Content-Type", "image/jpeg")
+			case ".docx":
+				c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+				c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+			case ".doc":
+				c.Set("Content-Type", "application/msword")
+				c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+			case ".pptx":
+				c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+				c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+			case ".ppt":
+				c.Set("Content-Type", "application/vnd.ms-powerpoint")
+				c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+			case ".zip":
+				c.Set("Content-Type", "application/zip")
+				c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+			}
+
 			return c.SendFile(p)
 		}
 	}
 
-	return c.Status(fiber.StatusNotFound).SendString("File not found")
+	// JSON response for API clients
+	if strings.Contains(c.Get("Accept"), "application/json") {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success":   false,
+			"message":   "File not found on server storage",
+			"file_path": filePath,
+		})
+	}
+
+	// Friendly HTML response for browser navigation
+	c.Set("Content-Type", "text/html; charset=utf-8")
+	htmlResponse := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ไม่พบไฟล์เอกสาร - TU-North CPMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Prompt', sans-serif; }
+    body { background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px 28px; max-width: 520px; width: 100%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+    .icon { width: 64px; height: 64px; background: rgba(244, 63, 94, 0.15); color: #f43f5e; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px auto; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; color: #ffffff; }
+    p { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
+    .path-box { background: #0f172a; border: 1px dashed #475569; border-radius: 12px; padding: 10px 14px; font-size: 11px; color: #cbd5e1; font-family: monospace; word-break: break-all; margin-bottom: 20px; text-align: left; }
+    .path-label { color: #64748b; font-size: 10px; text-transform: uppercase; margin-bottom: 4px; }
+    .info-box { background: rgba(95, 6, 196, 0.12); border: 1px solid rgba(95, 6, 196, 0.3); border-radius: 14px; padding: 12px 14px; font-size: 12px; color: #c084fc; margin-bottom: 24px; text-align: left; line-height: 1.5; }
+    .btn-group { display: flex; gap: 10px; justify-content: center; }
+    .btn { background: #5f06c4; color: #ffffff; border: none; padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .btn:hover { background: #7c3aed; }
+    .btn-sec { background: #334155; color: #cbd5e1; }
+    .btn-sec:hover { background: #475569; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📁</div>
+    <h1>ไม่พบไฟล์เอกสารบนเซิร์ฟเวอร์</h1>
+    <p>ไฟล์เอกสารที่ท่านต้องการเปิดดู ไม่มีอยู่ในพื้นที่จัดเก็บข้อมูลของเซิร์ฟเวอร์ในขณะนี้</p>
+    <div class="path-box">
+      <div class="path-label">ชื่อไฟล์ที่ระบุ (File Identifier):</div>
+      <div>%s</div>
+    </div>
+    <div class="info-box">
+      💡 <b>คำแนะนำ:</b> หากเป็นรายการประวัติโครงงานจากระบบเดิม ไฟล์เอกสารต้นฉบับอาจยังไม่ได้ถูกย้ายมายังเซิร์ฟเวอร์ หรือหากเป็นงานปัจจุบัน นักเรียนในกลุ่มสามารถอัปโหลดไฟล์ใหม่เข้าระบบได้ทันที
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-sec" onclick="window.close(); if(!window.closed){ history.back(); }">ปิดหน้านี้</button>
+      <a class="btn" href="/">กลับสู่หน้าหลัก CPMS</a>
+    </div>
+  </div>
+</body>
+</html>`, filePath)
+
+	return c.Status(fiber.StatusNotFound).SendString(htmlResponse)
 }
 
 // Upload Step Template or Example document (Admin)

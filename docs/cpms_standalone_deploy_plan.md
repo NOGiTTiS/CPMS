@@ -144,3 +144,28 @@ docker compose restart
 | `somchai@tunorth.ac.th` | **TEACHER** | `password` | คุณครูสมชาย (ครูผู้สอนประจำห้อง 6.1) |
 | `student1@tunorth.ac.th` หรือ `28926` | **STUDENT** | `password` | นายสมศักดิ์ ตัวอย่าง (นักเรียนห้อง 6.1 - หัวหน้ากลุ่ม) |
 | `student2@tunorth.ac.th` หรือ `28927` | **STUDENT** | `password` | นางสาวสมศรี ตัวอย่าง (นักเรียนห้อง 6.1 - สมาชิก) |
+
+---
+
+## 🛠️ 5. การแก้ไขปัญหาเมื่อพบข้อผิดพลาด (Troubleshooting Guide)
+
+### ❓ ปัญหา: Backend ขึ้น `Database connection failed: connection refused` หรือ API ตอบ `404 Not Found`
+**สาเหตุ**: คอนเทนเนอร์ `cpms-db` (PostgreSQL) ยังไม่พร้อมทำงาน หรือปิดอยู่ขณะที่ backend พยายามเชื่อมต่อ
+
+**วิธีแก้ไข:**
+```bash
+# 1. ตรวจสอบสถานะและเปิด cpms-db
+cd ~/TUNorth/infra
+docker compose up -d cpms-db
+
+# 2. ดู Logs ของฐานข้อมูลให้แน่ใจว่าพร้อมรับ Connection
+docker logs cpms-db --tail 20
+
+# 3. สั่ง Restart คอนเทนเนอร์ Backend
+cd ~/TUNorth/apps/cpms
+docker compose restart backend
+
+# 4. ดู Logs การทำงานของ Backend (ต้องแสดง Handlers 123+ และ 200 OK)
+docker logs -f cpms-backend
+```
+
