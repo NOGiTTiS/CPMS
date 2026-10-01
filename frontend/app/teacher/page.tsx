@@ -18,6 +18,7 @@ import {
 import { formatDate, formatScore, compareRooms } from "@/lib/utils"
 import { toast } from "sonner"
 import { Modal } from "@/components/ui/modal"
+import ExportScoreDialog from "@/components/ExportScoreDialog"
 import { 
   ListOrdered, 
   TableProperties, 
@@ -56,6 +57,7 @@ export default function TeacherPage() {
   const [slots, setSlots] = useState<PresentationSlot[]>([])
   const [criteriaList, setCriteriaList] = useState<PresentationCriteria[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [openExportDialog, setOpenExportDialog] = useState(false)
 
   // Review Modal State
   const [reviewSubmission, setReviewSubmission] = useState<Submission | null>(null)
@@ -434,15 +436,11 @@ export default function TeacherPage() {
   }
 
   const handleExportGradeSheet = () => {
-    const yr = selectedYear || "2568"
-    const url = api.getExportUrl(`/teacher/gradesheet/export?academic_year=${encodeURIComponent(yr)}&room=${encodeURIComponent(selectedRoom)}`)
-    window.open(url, "_blank")
+    setOpenExportDialog(true)
   }
 
   const handleExportScores = () => {
-    const yr = selectedYear || "2568"
-    const url = api.getExportUrl(`/presentation/scores/export?academic_year=${encodeURIComponent(yr)}`)
-    window.open(url, "_blank")
+    setOpenExportDialog(true)
   }
 
   return (
@@ -726,7 +724,7 @@ export default function TeacherPage() {
                       onClick={handleExportGradeSheet}
                       className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
                     >
-                      <FileSpreadsheet className="w-4 h-4" /> ส่งออกใบคะแนน CSV
+                      <FileSpreadsheet className="w-4 h-4" /> ส่งออกรายงานคะแนน
                     </button>
                   </div>
 
@@ -892,7 +890,7 @@ export default function TeacherPage() {
                         onClick={handleExportScores}
                         className="bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-2 cursor-pointer"
                       >
-                        <Download className="w-4 h-4" /> Export คะแนน Rubric CSV
+                        <FileSpreadsheet className="w-4 h-4" /> ส่งออกรายงานคะแนน
                       </button>
                     </div>
                   </div>
@@ -1273,6 +1271,29 @@ export default function TeacherPage() {
                     </p>
                   </div>
 
+                  {/* Primary Comprehensive Export Card (GPMS style) */}
+                  <div className="p-6 rounded-3xl bg-linear-to-br from-brand-50 to-brand-100/50 dark:from-brand-950/40 dark:to-slate-900 border border-brand-200 dark:border-brand-800/60 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+                    <div className="space-y-1.5 max-w-xl">
+                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-brand-500 text-white text-[11px] font-bold">
+                        <FileSpreadsheet className="w-3.5 h-3.5" /> แนะนำระบบรายงานใหม่
+                      </div>
+                      <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                        ส่งออกรายงานผลคะแนนและการประเมินโครงการ (Excel .xlsx / CSV)
+                      </h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                        รวบรวมคะแนนขั้นตอนการส่งงาน (Milestones) และคะแนนนำเสนอ Rubric หลายกรรมการ คำนวณคะแนนเฉลี่ยและสุทธิอัตโนมัติ รองรับทั้งแบบสรุปรายกลุ่มและรายชื่อนักเรียนรายบุคคล พร้อมสร้าง Sheet แยกรายห้องเรียนในไฟล์ Excel อย่างสมบูรณ์
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setOpenExportDialog(true)}
+                      className="shrink-0 bg-brand-500 hover:bg-brand-600 active:scale-95 text-white px-5 py-3 rounded-2xl text-xs font-bold shadow-md shadow-brand-500/25 transition-all flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>เปิดหน้าต่างส่งออกรายงาน</span>
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
                       <div className="flex items-center gap-2">
@@ -1288,7 +1309,7 @@ export default function TeacherPage() {
                         onClick={handleExportGradeSheet}
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition-colors cursor-pointer"
                       >
-                        ดาวน์โหลด CSV ใบคะแนน
+                        ส่งออกใบคะแนน
                       </button>
                     </div>
 
@@ -1306,7 +1327,7 @@ export default function TeacherPage() {
                         onClick={handleExportScores}
                         className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-2 rounded-xl text-xs transition-colors cursor-pointer"
                       >
-                        ดาวน์โหลด CSV ผลประเมิน Rubric
+                        ส่งออกผลประเมิน Rubric
                       </button>
                     </div>
                   </div>
@@ -1725,6 +1746,16 @@ export default function TeacherPage() {
                 </div>
               )}
             </Modal>
+
+            {/* Export Score Dialog */}
+            <ExportScoreDialog
+              open={openExportDialog}
+              onOpenChange={setOpenExportDialog}
+              academicYears={activeYears}
+              rooms={assignedRooms}
+              defaultYear={selectedYear}
+              defaultRoom={selectedRoom || "all"}
+            />
           </>
         )
       }}

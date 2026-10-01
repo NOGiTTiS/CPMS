@@ -19,6 +19,7 @@ import {
 import { formatDate, compareRooms } from "@/lib/utils"
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
+import ExportScoreDialog from "@/components/ExportScoreDialog";
 import { 
   Users, 
   School, 
@@ -78,7 +79,8 @@ import {
   Server,
   Activity,
   Terminal,
-  ExternalLink
+  ExternalLink,
+  FileSpreadsheet
 } from "lucide-react"
 
 export default function AdminPage() {
@@ -93,6 +95,7 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [openExportDialog, setOpenExportDialog] = useState(false);
 
   // User Filter & Search & Pagination
   const [userSearch, setUserSearch] = useState("")
@@ -2894,13 +2897,10 @@ export default function AdminPage() {
                       </button>
 
                       <button
-                        onClick={() => {
-                          const exportUrl = api.getExportUrl(`/presentation/scores/export?academic_year=${encodeURIComponent(activeCurrentYear || "2568")}`)
-                          window.open(exportUrl, "_blank")
-                        }}
+                        onClick={() => setOpenExportDialog(true)}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                       >
-                        <Download className="w-3.5 h-3.5" /> Export Scores
+                        <FileSpreadsheet className="w-3.5 h-3.5" /> ส่งออกรายงานคะแนน
                       </button>
                     </div>
                   </div>
@@ -5571,6 +5571,16 @@ export default function AdminPage() {
                 </div>
               </form>
             </Modal>
+
+            {/* Export Score Dialog */}
+            <ExportScoreDialog
+              open={openExportDialog}
+              onOpenChange={setOpenExportDialog}
+              academicYears={academicYears}
+              rooms={availableRooms}
+              defaultYear={activeCurrentYear}
+              defaultRoom="all"
+            />
           </>
         )
       }}

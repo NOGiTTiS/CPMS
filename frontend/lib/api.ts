@@ -1,8 +1,17 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== "undefined" && window.location.hostname !== "localhost"
-    ? "/api"
-    : "http://localhost:8009/api");
+const getApiBaseUrl = (): string => {
+  if (typeof window !== "undefined") {
+    if (
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+      window.location.port === "3000"
+    ) {
+      return "http://localhost:8080/api";
+    }
+    return "/api";
+  }
+  return process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || "http://cpms-backend:8080/api";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface ApiResponse<T = unknown> {
   data?: T;
@@ -173,6 +182,56 @@ class ApiClient {
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
     const separator = cleanEndpoint.includes("?") ? "&" : "?"
     return `${API_BASE_URL}${cleanEndpoint}${separator}token=${encodeURIComponent(token)}`
+  }
+
+  async downloadFile(endpoint: string, defaultFilename: string): Promise<void> {
+    let token = ""
+    if (typeof window !== "undefined") {
+      token = localStorage.getItem("cpms_token") || ""
+    }
+
+    let url = endpoint.startsWith("http")
+      ? endpoint
+      : `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`
+
+    if (token && !url.includes("token=")) {
+      const sep = url.includes("?") ? "&" : "?"
+      url += `${sep}token=${encodeURIComponent(token)}`
+    }
+
+    const headers: HeadersInit = {}
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
+    const res = await fetch(url, { method: "GET", headers })
+    if (!res.ok) {
+      if (res.status === 401) {
+        this.handleUnauthorized()
+        throw new Error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่")
+      }
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data?.message || data?.error || `ดาวน์โหลดไฟล์ล้มเหลว (HTTP ${res.status})`)
+    }
+
+    const blob = await res.blob()
+    const disposition = res.headers.get("content-disposition")
+    let filename = defaultFilename
+    if (disposition && disposition.includes("filename=")) {
+      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+      if (match && match[1]) {
+        filename = match[1].replace(/['"]/g, "")
+      }
+    }
+
+    const blobUrl = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = blobUrl
+    a.download = decodeURIComponent(filename)
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(blobUrl)
+    document.body.removeChild(a)
   }
 }
 

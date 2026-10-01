@@ -24,6 +24,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	teacherCtrl := controllers.NewTeacherController(db, cfg, telegramService)
 	adminCtrl := controllers.NewAdminController(db, cfg, telegramService)
 	announcementCtrl := controllers.NewAnnouncementController(db, cfg, telegramService)
+	exportCtrl := controllers.NewExportController(db, cfg)
 
 	// Global Health Check
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -131,6 +132,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	teacherGroup.Get("/queue", teacherCtrl.GetPendingSubmissionsQueue)
 	teacherGroup.Get("/progress-matrix", teacherCtrl.GetClassProgressMatrix)
 	teacherGroup.Get("/gradesheet/export", teacherCtrl.ExportGradeSheetCSV)
+	teacherGroup.Get("/scores/export/excel", exportCtrl.ExportScoresExcel)
+	teacherGroup.Get("/scores/export/xlsx", exportCtrl.ExportScoresExcel)
+	teacherGroup.Get("/scores/export/csv", exportCtrl.ExportScoresCSV)
+	teacherGroup.Get("/scores/report", exportCtrl.GetScoreReportData)
 
 	// ----------------------------------------------------
 	// 8. ADMIN PORTAL ROUTES
@@ -157,6 +162,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	adminGroup.Post("/settings/upload-image", adminCtrl.UploadSettingImage)
 	adminGroup.Post("/settings/test-telegram", adminCtrl.TestTelegram)
 	adminGroup.Get("/logs", adminCtrl.ListActivityLogs)
+	adminGroup.Get("/scores/export/excel", exportCtrl.ExportScoresExcel)
+	adminGroup.Get("/scores/export/xlsx", exportCtrl.ExportScoresExcel)
+	adminGroup.Get("/scores/export/csv", exportCtrl.ExportScoresCSV)
+	adminGroup.Get("/scores/report", exportCtrl.GetScoreReportData)
 	adminGroup.Post("/announcements", announcementCtrl.CreateAnnouncement)
 	adminGroup.Delete("/announcements/:id", announcementCtrl.DeleteAnnouncement)
 }

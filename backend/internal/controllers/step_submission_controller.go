@@ -555,7 +555,7 @@ func (ssc *StepSubmissionController) DownloadFile(c *fiber.Ctx) error {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Prompt', sans-serif; }
     body { background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px 28px; max-width: 520px; width: 100%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 36px 28px; max-width: 520px; width: 100%%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
     .icon { width: 64px; height: 64px; background: rgba(244, 63, 94, 0.15); color: #f43f5e; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px auto; }
     h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; color: #ffffff; }
     p { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
