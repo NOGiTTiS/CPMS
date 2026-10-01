@@ -16,6 +16,25 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th" suppressHydrationWarning className="h-full antialiased">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var c = localStorage.getItem('cpms_theme_color');
+                  if (c && /^#[0-9A-Fa-f]{6}$/.test(c)) {
+                    var s = document.createElement('style');
+                    s.id = 'cpms-theme-preload';
+                    s.textContent = ':root, .dark { --color-brand-500: ' + c + ' !important; --primary: ' + c + ' !important; --ring: ' + c + ' !important; }';
+                    document.head.appendChild(s);
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-brand-500 selection:text-white transition-colors duration-200">
         <ThemeProvider defaultTheme="light" storageKey="kru_theme">
           <DynamicBranding />

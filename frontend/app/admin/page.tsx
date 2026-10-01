@@ -20,6 +20,7 @@ import { formatDate, compareRooms } from "@/lib/utils"
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import ExportScoreDialog from "@/components/ExportScoreDialog";
+import { applyThemeColors } from "@/components/dynamic-branding";
 import { 
   Users, 
   School, 
@@ -80,7 +81,8 @@ import {
   Activity,
   Terminal,
   ExternalLink,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Palette
 } from "lucide-react"
 
 export default function AdminPage() {
@@ -1250,12 +1252,24 @@ export default function AdminPage() {
         show_scores_to_students: settings.show_scores_to_students !== undefined ? settings.show_scores_to_students : "true",
         telegram_bot_enabled: settings.telegram_bot_enabled !== undefined ? settings.telegram_bot_enabled : "false",
         telegram_bot_token: settings.telegram_bot_token || "",
-        telegram_chat_id: settings.telegram_chat_id || ""
+        telegram_chat_id: settings.telegram_chat_id || "",
+        theme_primary_color: settings.theme_primary_color || "#5f06c4"
       }
+
+      // 1. Immediately apply & persist locally first to guarantee zero UI latency
+      if (typeof window !== "undefined") {
+        applyThemeColors(payload.theme_primary_color)
+        try {
+          localStorage.setItem("cpms_theme_color", payload.theme_primary_color)
+        } catch {}
+      }
+
       await api.put("/admin/settings", payload)
       setSettings(payload)
+
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("branding-updated"))
+        applyThemeColors(payload.theme_primary_color)
+        window.dispatchEvent(new CustomEvent("branding-updated", { detail: { themeColor: payload.theme_primary_color } }))
       }
       toast.success("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว")
     } catch (err: unknown) {
@@ -1518,7 +1532,7 @@ export default function AdminPage() {
                     <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
                       {slots.filter((s) => s.academic_year === activeCurrentYear).length}
                     </div>
-                    <span className="text-[10px] text-purple-600 font-medium">รวมทุกปี {slots.length} รอบ</span>
+                    <span className="text-[10px] text-brand-600 font-medium">รวมทุกปี {slots.length} รอบ</span>
                   </div>
 
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl">
@@ -1760,7 +1774,7 @@ export default function AdminPage() {
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                                     u.role === "ADMIN"
-                                      ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+                                      ? "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                                       : u.role === "TEACHER"
                                       ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
                                       : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
@@ -3305,7 +3319,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* TU-North CPMS v1.0 & LAN/Cloudflare Deployment Status Banner */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-brand-500 via-brand-600 to-indigo-700 text-white rounded-3xl p-6 sm:p-7 shadow-lg shadow-brand-500/20 space-y-4">
+                <div className="relative overflow-hidden bg-gradient-to-br from-brand-500 via-brand-600 to-brand-800 text-white rounded-3xl p-6 sm:p-7 shadow-lg shadow-brand-500/20 space-y-4">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -3467,7 +3481,7 @@ export default function AdminPage() {
                   {/* SECTION 2: รูปภาพและอัตลักษณ์ (Images & Branding) */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
                     <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                      <div className="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-950/60 flex items-center justify-center text-brand-600 dark:text-brand-400 font-bold text-sm">
                         <ImageIcon className="w-4 h-4" />
                       </div>
                       <div>
@@ -3626,7 +3640,149 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* SECTION 3: รูปแบบการส่งงาน (Submission Mode) */}
+                  {/* SECTION 3: ธีมสีหลักของระบบ (Primary Theme Color) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-950/60 flex items-center justify-center text-brand-500 font-bold text-sm">
+                        <Palette className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          3. ธีมสีหลักของระบบ (Primary Theme Color)
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          เลือกชุดสีหลักที่จะถูกนำไปปรับใช้กับปุ่ม, ลิงก์, แถบสถานะ และเน้นย้ำ UI ทั้งหมดในแพลตฟอร์ม
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 space-y-6">
+                      {/* Color Presets */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          ชุดสียอดนิยม (Color Presets)
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                          {[
+                            { name: "TU-North Purple (ม่วงต้นฉบับ)", hex: "#5f06c4" },
+                            { name: "Navy Blue (กรมท่า)", hex: "#2563eb" },
+                            { name: "Ocean Sky (ฟ้าคราม)", hex: "#0284c7" },
+                            { name: "Emerald (เขียวมรกต)", hex: "#059669" },
+                            { name: "Violet (ม่วงสดใส)", hex: "#7c3aed" },
+                            { name: "Crimson (แดงทับทิม)", hex: "#dc2626" },
+                            { name: "Amber (ส้มอำพัน)", hex: "#d97706" },
+                            { name: "Charcoal (เทาเข้ม)", hex: "#334155" },
+                            { name: "Rose (ชมพูกุหลาบ)", hex: "#e11d48" },
+                          ].map((preset) => {
+                            const isSelected =
+                              (settings.theme_primary_color || "#5f06c4").toLowerCase() ===
+                              preset.hex.toLowerCase()
+                            return (
+                              <button
+                                key={preset.hex}
+                                type="button"
+                                onClick={() => {
+                                  setSettings({ ...settings, theme_primary_color: preset.hex })
+                                  applyThemeColors(preset.hex)
+                                }}
+                                className={`p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? "bg-white dark:bg-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/20 dark:ring-white/20 shadow-xs"
+                                    : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-900"
+                                }`}
+                              >
+                                <span
+                                  className="w-6 h-6 rounded-lg shrink-0 shadow-xs border border-black/10"
+                                  style={{ backgroundColor: preset.hex }}
+                                ></span>
+                                <div className="text-left overflow-hidden">
+                                  <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                                    {preset.name}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-mono block">
+                                    {preset.hex}
+                                  </span>
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Custom Color Input */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            หรือเลือกสีแบบกำหนดเอง (Custom Hex):
+                          </label>
+                          <input
+                            type="color"
+                            value={settings.theme_primary_color || "#5f06c4"}
+                            onChange={(e) => {
+                              setSettings({ ...settings, theme_primary_color: e.target.value })
+                              applyThemeColors(e.target.value)
+                            }}
+                            className="w-9 h-9 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={settings.theme_primary_color || "#5f06c4"}
+                          onChange={(e) => {
+                            setSettings({ ...settings, theme_primary_color: e.target.value })
+                            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                              applyThemeColors(e.target.value)
+                            }
+                          }}
+                          placeholder="#5f06c4"
+                          maxLength={7}
+                          className="w-32 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white font-bold"
+                        />
+                      </div>
+
+                      {/* Interactive Live Color Preview Box */}
+                      <div className="space-y-2 pt-2">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          ตัวอย่างการแสดงผลธีมสี (Interactive Color Preview)
+                        </span>
+                        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-4">
+                          <button
+                            type="button"
+                            style={{ backgroundColor: settings.theme_primary_color || "#5f06c4" }}
+                            className="px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition-transform"
+                          >
+                            ปุ่มสีหลัก (Primary Button)
+                          </button>
+                          <span
+                            style={{
+                              color: settings.theme_primary_color || "#5f06c4",
+                              borderColor: settings.theme_primary_color || "#5f06c4",
+                            }}
+                            className="px-3 py-1 rounded-full text-xs font-bold border"
+                          >
+                            Badge สถานะ
+                          </span>
+                          <div className="flex-1 min-w-30 max-w-xs space-y-1">
+                            <div className="flex justify-between text-[10px] font-semibold text-slate-500">
+                              <span>Progress Bar</span>
+                              <span>75%</span>
+                            </div>
+                            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: "75%",
+                                  backgroundColor: settings.theme_primary_color || "#5f06c4",
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 4: รูปแบบการส่งงาน (Submission Mode) */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
                     <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
                       <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-sm">
@@ -3634,7 +3790,7 @@ export default function AdminPage() {
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          3. รูปแบบการส่งงานของนักเรียน (Submission Mode)
+                          4. รูปแบบการส่งงานของนักเรียน (Submission Mode)
                         </h4>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           กำหนดลำดับขั้นและความเข้มงวดในการส่งชิ้นงานของกลุ่มนักเรียน
@@ -3743,7 +3899,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* SECTION 4: การให้คะแนนและการแสดงผล (Grading & Score Visibility) */}
+                  {/* SECTION 5: การให้คะแนนและการแสดงผล (Grading & Score Visibility) */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
                     <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
                       <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-sm">
@@ -3751,7 +3907,7 @@ export default function AdminPage() {
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          4. การให้คะแนนและการมองเห็นคะแนน (Grading & Score Visibility)
+                          5. การให้คะแนนและการมองเห็นคะแนน (Grading & Score Visibility)
                         </h4>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           ควบคุมการอนุญาตให้นักเรียนมองเห็นคะแนนการตรวจงานและคะแนน Rubric นำเสนอ
@@ -3807,7 +3963,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* SECTION 5: การแจ้งเตือน (Notifications & Telegram) */}
+                  {/* SECTION 6: การแจ้งเตือน (Notifications & Telegram) */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2.5">
@@ -3816,7 +3972,7 @@ export default function AdminPage() {
                         </div>
                         <div>
                           <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                            5. การแจ้งเตือนและการเชื่อมต่อ (Notifications & Telegram Bot)
+                            6. การแจ้งเตือนและการเชื่อมต่อ (Notifications & Telegram Bot)
                           </h4>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400">
                             ส่งการแจ้งเตือนอัตโนมัติเมื่อมีการสร้างกลุ่ม ส่งงาน ตรวจงาน และจองรอบนำเสนอ
@@ -3923,7 +4079,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* SECTION 6: ข้อมูลเวอร์ชันและการเชื่อมต่อเครือข่าย (System Version & Network Deployment) */}
+                  {/* SECTION 7: ข้อมูลเวอร์ชันและการเชื่อมต่อเครือข่าย (System Version & Network Deployment) */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
                     <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
                       <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold text-sm">
@@ -3931,7 +4087,7 @@ export default function AdminPage() {
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          6. ข้อมูลเวอร์ชันและการเชื่อมต่อเครือข่าย (System Version & Network Deployment)
+                          7. ข้อมูลเวอร์ชันและการเชื่อมต่อเครือข่าย (System Version & Network Deployment)
                         </h4>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           กำหนดเวอร์ชันระบบ ข้อความสถานะ และที่อยู่ URL สำหรับการเข้าใช้งานผ่าน LAN และ Cloudflare

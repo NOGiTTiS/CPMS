@@ -865,6 +865,7 @@ func (ac *AdminController) GetSettings(c *fiber.Ctx) error {
 }
 
 func (ac *AdminController) GetPublicSettings(c *fiber.Ctx) error {
+	c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	var settings []models.SystemSetting
 	if err := ac.db.Find(&settings).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Failed to load settings"})
@@ -885,6 +886,7 @@ func (ac *AdminController) GetPublicSettings(c *fiber.Ctx) error {
 		"deployment_status":       true,
 		"lan_url":                 true,
 		"cloudflare_url":          true,
+		"theme_primary_color":     true,
 	}
 
 	settingsMap := make(map[string]string)
@@ -895,6 +897,9 @@ func (ac *AdminController) GetPublicSettings(c *fiber.Ctx) error {
 	}
 
 	// Set defaults if not present
+	if _, ok := settingsMap["theme_primary_color"]; !ok || settingsMap["theme_primary_color"] == "" {
+		settingsMap["theme_primary_color"] = "#5f06c4"
+	}
 	if _, ok := settingsMap["submission_mode"]; !ok {
 		settingsMap["submission_mode"] = "sequential"
 	}

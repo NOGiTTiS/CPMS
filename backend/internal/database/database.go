@@ -131,6 +131,7 @@ func AutoMigrate(db *gorm.DB) error {
 		"telegram_bot_enabled":    "false",
 		"telegram_bot_token":      "",
 		"telegram_chat_id":        "",
+		"theme_primary_color":     "#5f06c4",
 	}
 
 	for key, val := range defaultSettings {
