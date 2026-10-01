@@ -45,8 +45,8 @@
 ### 👨‍🏫 2. สำหรับครูผู้สอนและกรรมการ (Teacher Portal)
 - **ศูนย์รวมงานตรวจ (Review Queue)**: คัดกรองและตรวจผลงานตามขั้นตอน อนุมัติ (Approved) หรือสั่งแก้ไข (Rejected) พร้อมแนบข้อเสนอแนะ
 - **ตารางติดตามความคืบหน้า (Classroom Progress Matrix)**: ดูภาพรวมความคืบหน้าของนักเรียนทุกกลุ่มในห้องเรียนที่ตนเองรับผิดชอบแบบ Real-time
-- **ระบบประเมินคะแนน Rubric (Multi-Evaluator Defense Scoring)**: คณะกรรมการแต่ละท่านสามารถกรอกคะแนนตามเกณฑ์ Rubric แยกกันได้อย่างอิสระ โดยระบบจะคำนวณคะแนนเฉลี่ยให้อัตโนมัติ
-- **ส่งออกใบคะแนน (Grade Sheet Export)**: ดาวน์โหลดสรุปคะแนนส่งงานและคะแนนนำเสนอออกมาเป็นไฟล์ CSV / Excel เพื่อนำไปตัดเกรด
+- **ระบบประเมินคะแนน Rubric (Multi-Evaluator Defense Scoring)**: คณะกรรมการแต่ละท่านสามารถกรอกคะแนนตามเกณฑ์ Rubric แยกกันได้อย่างอิสระ โดยระบบจะคำนวณคะแนนเฉลี่ยให้อัตโนมัติ (คะแนนนำเสนอ 20 คะแนน แสดงผลเป็นจำนวนเต็ม)
+- **ส่งออกรายงานคะแนนสมบูรณ์แบบ (Advanced Grade Sheet Export)**: ส่งออกรายงานคะแนนรวม 100 คะแนน (คะแนนขั้นตอนส่งงาน 60 คะแนน + สอบกลางภาค 20 คะแนน + นำเสนอ 20 คะแนน) ออกมาเป็นไฟล์ Excel (.xlsx) แยกหลายชีท (สรุปภาพรวมรายกลุ่ม, สรุปรายบุคคล, ใบคะแนนแยกห้องเรียน) หรือไฟล์ CSV พร้อมระบบดาวน์โหลดความเร็วสูงปลอดภัยจาก Popup Blocker
 
 ### ⚙️ 3. สำหรับผู้ดูแลระบบ (Admin Control Panel)
 - **จัดการผู้ใช้งาน (User Management)**: ค้นหา, กรองข้อมูลตามห้องเรียน/บทบาท, เพิ่ม/แก้ไขข้อมูล, ระบบรีเซ็ตรหัสผ่าน และระบบนำเข้ารายชื่อผ่าน CSV (พร้อมปุ่มดาวน์โหลด CSV Template)
@@ -54,7 +54,14 @@
 - **มอบหมายห้องเรียน (Teacher-Room Assignment)**: กำหนดครูผู้สอนประจำห้องเรียนระดับชั้น ม.6
 - **กำหนดขั้นตอนงานและเกณฑ์ Rubric (Steps & Rubric Management)**: เพิ่ม แก้ไข ปิดเปิดขั้นตอนส่งงาน พร้อมอัปโหลดไฟล์แม่แบบ/ตัวอย่าง และกำหนดเกณฑ์การให้คะแนนนำเสนอ
 - **จัดการรอบนำเสนอ (Presentation Slots Management)**: กำหนดวัน เวลา สถานที่ และจำนวนกลุ่มที่รองรับในแต่ละรอบ
-- **ตั้งค่าระบบและอัตลักษณ์ (Dynamic Branding & System Settings)**: เปลี่ยนชื่อระบบ, ข้อความหัวเว็บ, ลิขสิทธิ์, อัปโหลด Logo และ Favicon, เปิด/ปิดโหมดส่งงาน และตั้งค่าการแจ้งเตือนผ่าน Telegram Bot
+- **ตั้งค่าระบบและอัตลักษณ์ (Dynamic Branding & System Settings)**:
+  - **ปรับแต่งสีธีมหลัก (Primary Theme Color Engine)**: ปรับเปลี่ยนโทนสีหลักของระบบตามเอกลักษณ์ของสถาบันได้ทันที (รองรับทั้ง Light / Dark Mode)
+  - **ชุดสียอดนิยม (Color Presets)**: มีให้เลือก 9 เฉดสี (TU-North Purple, Navy Blue, Ocean Sky, Emerald, Violet, Crimson, Amber, Charcoal, Rose) พร้อม Native Color Picker และกรอกรหัส HEX เอง
+  - **Live Preview Box**: แสดงตัวอย่างปุ่มหลัก (Primary Button), ป้ายสถานะ (Badge), และหลอดความคืบหน้า (Progress Bar) ทันทีขณะเลือกสี
+  - **Multi-Shade Palette Generator (50-950)**: คำนวณเฉดสีครอบคลุม 11 ระดับ พร้อมระบบซิงค์สีข้ามแท็บอัตโนมัติ (Storage Event Sync) และ Anti-FOUT Preload ป้องกันสีม่วงกระพริบตอนโหลดหน้า
+  - **อัปโหลด Logo & Favicon**: ปรับเปลี่ยนโลโก้ระบบและไอคอนเบราว์เซอร์
+  - **การตั้งค่าทั่วไปและ Telegram Bot**: กำหนดชื่อระบบ, คำอธิบาย, ลิขสิทธิ์, โหมดการส่งงาน (ตามลำดับ / อิสระ) และการแจ้งเตือนกิจกรรมผ่าน Telegram Bot
+- **ส่งออกคะแนนระดับโรงเรียน (School-wide Score Export)**: แอดมินสามารถส่งออกใบคะแนนรวมทุกห้องเรียนและทุกปีการศึกษาได้จากหน้าควบคุมส่วนกลาง
 - **บันทึกกิจกรรมระบบ (Activity Logs)**: ตรวจสอบประวัติการใช้งานและการเปลี่ยนแปลงข้อมูลสำคัญย้อนหลัง
 
 ---
@@ -277,8 +284,8 @@ CPMS/
 │   ├── cmd/server/main.go         # จุดเริ่มต้นรันเซิร์ฟเวอร์ (Entrypoint)
 │   ├── internal/
 │   │   ├── config/                # โหลด Environment Variables
-│   │   ├── database/              # จัดการเชื่อมต่อ PostgreSQL Connection Pool
-│   │   ├── handlers/              # API Controllers (Auth, Groups, Steps, Defense, Admin)
+│   │   ├── database/              # จัดการเชื่อมต่อ PostgreSQL & Auto Migration
+│   │   ├── controllers/           # API Controllers (Auth, Groups, Steps, Defense, Admin, Export)
 │   │   ├── middleware/            # JWT Auth, Role Guard (Admin, Teacher, Student)
 │   │   ├── models/                # GORM Data Models & Database Entities
 │   │   ├── routes/                # กำหนด Routing URL endpoints ทั้งหมด
@@ -286,11 +293,10 @@ CPMS/
 │   └── scripts/                   # ไฟล์สคริปต์ Database SQL Init & Migration
 │
 ├── frontend/                      # 🎨 Next.js 16 App Router Frontend
-│   ├── src/
-│   │   ├── app/                   # App Router Pages (login, student, teacher, admin)
-│   │   ├── components/            # UI Components (Modals, Navbars, Tables, Badges)
-│   │   ├── lib/                   # API Client, Axios instance, Utilities
-│   │   └── store/                 # Zustand Global State (AuthStore, ThemeStore)
+│   ├── app/                       # App Router Pages (login, student, teacher, admin)
+│   ├── components/                # UI Components (Modals, Navbars, Tables, Badges, ExportScoreDialog, DynamicBranding)
+│   ├── lib/                       # API Client, Fetch instance, Utilities
+│   ├── store/                     # Zustand Global State (AuthStore)
 │   ├── package.json               # รายการ Dependencies (จัดการด้วย Bun)
 │   └── Dockerfile                 # Multi-stage Bun Next.js Dockerfile
 │
