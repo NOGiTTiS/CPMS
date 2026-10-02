@@ -20,7 +20,7 @@ import { formatDate, compareRooms } from "@/lib/utils"
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import ExportScoreDialog from "@/components/ExportScoreDialog";
-import { applyThemeColors } from "@/components/dynamic-branding";
+import { applyThemeColors, DEFAULT_DAY_COLORS, resolveEffectiveThemeColor } from "@/components/dynamic-branding";
 import { 
   Users, 
   School, 
@@ -82,7 +82,8 @@ import {
   Terminal,
   ExternalLink,
   FileSpreadsheet,
-  Palette
+  Palette,
+  RotateCcw
 } from "lucide-react"
 
 export default function AdminPage() {
@@ -1253,14 +1254,24 @@ export default function AdminPage() {
         telegram_bot_enabled: settings.telegram_bot_enabled !== undefined ? settings.telegram_bot_enabled : "false",
         telegram_bot_token: settings.telegram_bot_token || "",
         telegram_chat_id: settings.telegram_chat_id || "",
-        theme_primary_color: settings.theme_primary_color || "#5f06c4"
+        theme_primary_color: settings.theme_primary_color || "#5f06c4",
+        theme_auto_color_enabled: settings.theme_auto_color_enabled !== undefined ? settings.theme_auto_color_enabled : "false",
+        theme_day_color_sun: settings.theme_day_color_sun || "#dc2626",
+        theme_day_color_mon: settings.theme_day_color_mon || "#eab308",
+        theme_day_color_tue: settings.theme_day_color_tue || "#ec4899",
+        theme_day_color_wed: settings.theme_day_color_wed || "#059669",
+        theme_day_color_thu: settings.theme_day_color_thu || "#ea580c",
+        theme_day_color_fri: settings.theme_day_color_fri || "#0284c7",
+        theme_day_color_sat: settings.theme_day_color_sat || "#7c3aed"
       }
+
+      const effectiveColor = resolveEffectiveThemeColor(payload)
 
       // 1. Immediately apply & persist locally first to guarantee zero UI latency
       if (typeof window !== "undefined") {
-        applyThemeColors(payload.theme_primary_color)
+        applyThemeColors(effectiveColor)
         try {
-          localStorage.setItem("cpms_theme_color", payload.theme_primary_color)
+          localStorage.setItem("cpms_theme_color", effectiveColor)
         } catch {}
       }
 
@@ -1268,8 +1279,8 @@ export default function AdminPage() {
       setSettings(payload)
 
       if (typeof window !== "undefined") {
-        applyThemeColors(payload.theme_primary_color)
-        window.dispatchEvent(new CustomEvent("branding-updated", { detail: { themeColor: payload.theme_primary_color } }))
+        applyThemeColors(effectiveColor)
+        window.dispatchEvent(new CustomEvent("branding-updated", { detail: { themeColor: effectiveColor } }))
       }
       toast.success("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว")
     } catch (err: unknown) {
@@ -3640,145 +3651,304 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* SECTION 3: ธีมสีหลักของระบบ (Primary Theme Color) */}
+                  {/* SECTION 3: ธีมสีของระบบ (System Theme & Brand Color) */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
-                    <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                      <div className="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-950/60 flex items-center justify-center text-brand-500 font-bold text-sm">
-                        <Palette className="w-4 h-4" />
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-950/60 flex items-center justify-center text-brand-500 font-bold text-sm">
+                          <Palette className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                            3. ธีมสีของระบบ (System Theme & Brand Color)
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            กำหนดโทนสีหลักของระบบ หรือเปิดใช้งานโหมดเปลี่ยนสีอัตโนมัติตามสีประจำวัน (อาทิตย์-เสาร์)
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          3. ธีมสีหลักของระบบ (Primary Theme Color)
-                        </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                          เลือกชุดสีหลักที่จะถูกนำไปปรับใช้กับปุ่ม, ลิงก์, แถบสถานะ และเน้นย้ำ UI ทั้งหมดในแพลตฟอร์ม
-                        </p>
+
+                      {/* Auto Theme Toggle in Header */}
+                      <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                            ธีมสีประจำวันอัตโนมัติ
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={settings.theme_auto_color_enabled === "true"}
+                          onClick={() => {
+                            const newEnabled = settings.theme_auto_color_enabled === "true" ? "false" : "true"
+                            const updated = { ...settings, theme_auto_color_enabled: newEnabled }
+                            setSettings(updated)
+                            const eff = resolveEffectiveThemeColor(updated)
+                            applyThemeColors(eff)
+                          }}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                            settings.theme_auto_color_enabled === "true" ? "bg-brand-500" : "bg-slate-300 dark:bg-slate-600"
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                              settings.theme_auto_color_enabled === "true" ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
                       </div>
                     </div>
 
                     <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 space-y-6">
-                      {/* Color Presets */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          ชุดสียอดนิยม (Color Presets)
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                          {[
-                            { name: "TU-North Purple (ม่วงต้นฉบับ)", hex: "#5f06c4" },
-                            { name: "Navy Blue (กรมท่า)", hex: "#2563eb" },
-                            { name: "Ocean Sky (ฟ้าคราม)", hex: "#0284c7" },
-                            { name: "Emerald (เขียวมรกต)", hex: "#059669" },
-                            { name: "Violet (ม่วงสดใส)", hex: "#7c3aed" },
-                            { name: "Crimson (แดงทับทิม)", hex: "#dc2626" },
-                            { name: "Amber (ส้มอำพัน)", hex: "#d97706" },
-                            { name: "Charcoal (เทาเข้ม)", hex: "#334155" },
-                            { name: "Rose (ชมพูกุหลาบ)", hex: "#e11d48" },
-                          ].map((preset) => {
-                            const isSelected =
-                              (settings.theme_primary_color || "#5f06c4").toLowerCase() ===
-                              preset.hex.toLowerCase()
-                            return (
-                              <button
-                                key={preset.hex}
-                                type="button"
-                                onClick={() => {
-                                  setSettings({ ...settings, theme_primary_color: preset.hex })
-                                  applyThemeColors(preset.hex)
-                                }}
-                                className={`p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer ${
-                                  isSelected
-                                    ? "bg-white dark:bg-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/20 dark:ring-white/20 shadow-xs"
-                                    : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-900"
-                                }`}
-                              >
-                                <span
-                                  className="w-6 h-6 rounded-lg shrink-0 shadow-xs border border-black/10"
-                                  style={{ backgroundColor: preset.hex }}
-                                ></span>
-                                <div className="text-left overflow-hidden">
-                                  <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                                    {preset.name}
+                      {settings.theme_auto_color_enabled === "true" ? (
+                        /* MODE: AUTO THEME BY DAY (7 DAYS) */
+                        <div className="space-y-4">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                            <div className="flex items-center gap-2.5">
+                              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                กำลังเปิดใช้งาน: สีระบบจะปรับตามวันอัตโนมัติ
+                              </span>
+                              {(() => {
+                                const todayIdx = new Date().getDay()
+                                const todayCfg = DEFAULT_DAY_COLORS[todayIdx]
+                                const todayColor = settings[todayCfg.key] || todayCfg.defaultHex
+                                return (
+                                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800">
+                                    🌟 วันนี้คือ {todayCfg.name} ({todayColor})
                                   </span>
-                                  <span className="text-[10px] text-slate-500 font-mono block">
-                                    {preset.hex}
-                                  </span>
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Custom Color Input */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                            หรือเลือกสีแบบกำหนดเอง (Custom Hex):
-                          </label>
-                          <input
-                            type="color"
-                            value={settings.theme_primary_color || "#5f06c4"}
-                            onChange={(e) => {
-                              setSettings({ ...settings, theme_primary_color: e.target.value })
-                              applyThemeColors(e.target.value)
-                            }}
-                            className="w-9 h-9 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-900"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={settings.theme_primary_color || "#5f06c4"}
-                          onChange={(e) => {
-                            setSettings({ ...settings, theme_primary_color: e.target.value })
-                            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                              applyThemeColors(e.target.value)
-                            }
-                          }}
-                          placeholder="#5f06c4"
-                          maxLength={7}
-                          className="w-32 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white font-bold"
-                        />
-                      </div>
-
-                      {/* Interactive Live Color Preview Box */}
-                      <div className="space-y-2 pt-2">
-                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          ตัวอย่างการแสดงผลธีมสี (Interactive Color Preview)
-                        </span>
-                        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-4">
-                          <button
-                            type="button"
-                            style={{ backgroundColor: settings.theme_primary_color || "#5f06c4" }}
-                            className="px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition-transform"
-                          >
-                            ปุ่มสีหลัก (Primary Button)
-                          </button>
-                          <span
-                            style={{
-                              color: settings.theme_primary_color || "#5f06c4",
-                              borderColor: settings.theme_primary_color || "#5f06c4",
-                            }}
-                            className="px-3 py-1 rounded-full text-xs font-bold border"
-                          >
-                            Badge สถานะ
-                          </span>
-                          <div className="flex-1 min-w-30 max-w-xs space-y-1">
-                            <div className="flex justify-between text-[10px] font-semibold text-slate-500">
-                              <span>Progress Bar</span>
-                              <span>75%</span>
+                                )
+                              })()}
                             </div>
-                            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: "75%",
-                                  backgroundColor: settings.theme_primary_color || "#5f06c4",
-                                }}
-                              ></div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const resetSettings: Record<string, string> = { ...settings }
+                                Object.values(DEFAULT_DAY_COLORS).forEach((d) => {
+                                  resetSettings[d.key] = d.defaultHex
+                                })
+                                setSettings(resetSettings)
+                                const eff = resolveEffectiveThemeColor(resetSettings)
+                                applyThemeColors(eff)
+                                toast.info("คืนค่าสีมาตรฐานประจำวันทั้ง 7 วันเรียบร้อยแล้ว")
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              คืนค่าสีมาตรฐาน 7 วัน
+                            </button>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              กำหนดโทนสีของแต่ละวัน (Sunday - Saturday):
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                              {Object.values(DEFAULT_DAY_COLORS).map((day) => {
+                                const todayIdx = new Date().getDay()
+                                const isToday = todayIdx === day.dayIndex
+                                const currentColor = settings[day.key] || day.defaultHex
+
+                                return (
+                                  <div
+                                    key={day.dayIndex}
+                                    className={`p-3.5 rounded-2xl border transition-all ${
+                                      isToday
+                                        ? "bg-white dark:bg-slate-900 border-brand-500 shadow-sm ring-2 ring-brand-500/20"
+                                        : "bg-white/70 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-1 mb-2">
+                                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                        {day.name}
+                                      </span>
+                                      {isToday && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300/40">
+                                          วันนี้
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 font-medium block mb-2.5">
+                                      {day.enName}
+                                    </span>
+
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="color"
+                                        value={currentColor}
+                                        onChange={(e) => {
+                                          const val = e.target.value
+                                          const updated = { ...settings, [day.key]: val }
+                                          setSettings(updated)
+                                          if (isToday) {
+                                            applyThemeColors(val)
+                                          }
+                                        }}
+                                        className="w-8 h-8 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-900 shrink-0 shadow-xs"
+                                        title={`เลือกสีสำหรับ ${day.name}`}
+                                      />
+                                      <input
+                                        type="text"
+                                        value={currentColor}
+                                        onChange={(e) => {
+                                          const val = e.target.value
+                                          const updated = { ...settings, [day.key]: val }
+                                          setSettings(updated)
+                                          if (isToday && /^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                            applyThemeColors(val)
+                                          }
+                                        }}
+                                        placeholder={day.defaultHex}
+                                        maxLength={7}
+                                        className="w-full px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white font-bold"
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              })}
                             </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        /* MODE: FIXED COLOR PRESETS & CUSTOM */
+                        <div className="space-y-6">
+                          {/* Color Presets */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              ชุดสียอดนิยม (Color Presets)
+                            </label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                              {[
+                                { name: "TU-North Purple (ม่วงต้นฉบับ)", hex: "#5f06c4" },
+                                { name: "Navy Blue (กรมท่า)", hex: "#2563eb" },
+                                { name: "Ocean Sky (ฟ้าคราม)", hex: "#0284c7" },
+                                { name: "Emerald (เขียวมรกต)", hex: "#059669" },
+                                { name: "Violet (ม่วงสดใส)", hex: "#7c3aed" },
+                                { name: "Crimson (แดงทับทิม)", hex: "#dc2626" },
+                                { name: "Amber (ส้มอำพัน)", hex: "#d97706" },
+                                { name: "Charcoal (เทาเข้ม)", hex: "#334155" },
+                                { name: "Rose (ชมพูกุหลาบ)", hex: "#e11d48" },
+                              ].map((preset) => {
+                                const isSelected =
+                                  (settings.theme_primary_color || "#5f06c4").toLowerCase() ===
+                                  preset.hex.toLowerCase()
+                                return (
+                                  <button
+                                    key={preset.hex}
+                                    type="button"
+                                    onClick={() => {
+                                      setSettings({ ...settings, theme_primary_color: preset.hex })
+                                      applyThemeColors(preset.hex)
+                                    }}
+                                    className={`p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "bg-white dark:bg-slate-900 border-slate-900 dark:border-white ring-2 ring-slate-900/20 dark:ring-white/20 shadow-xs"
+                                        : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-900"
+                                    }`}
+                                  >
+                                    <span
+                                      className="w-6 h-6 rounded-lg shrink-0 shadow-xs border border-black/10"
+                                      style={{ backgroundColor: preset.hex }}
+                                    ></span>
+                                    <div className="text-left overflow-hidden">
+                                      <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                                        {preset.name}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 font-mono block">
+                                        {preset.hex}
+                                      </span>
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Custom Color Input */}
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                หรือเลือกสีแบบกำหนดเอง (Custom Hex):
+                              </label>
+                              <input
+                                type="color"
+                                value={settings.theme_primary_color || "#5f06c4"}
+                                onChange={(e) => {
+                                  setSettings({ ...settings, theme_primary_color: e.target.value })
+                                  applyThemeColors(e.target.value)
+                                }}
+                                className="w-9 h-9 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-900"
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              value={settings.theme_primary_color || "#5f06c4"}
+                              onChange={(e) => {
+                                setSettings({ ...settings, theme_primary_color: e.target.value })
+                                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                                  applyThemeColors(e.target.value)
+                                }
+                              }}
+                              placeholder="#5f06c4"
+                              maxLength={7}
+                              className="w-32 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white font-bold"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Interactive Live Color Preview Box */}
+                      {(() => {
+                        const previewColor = resolveEffectiveThemeColor(settings)
+                        return (
+                          <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                ตัวอย่างการแสดงผลธีมสี (Interactive Color Preview)
+                              </span>
+                              <span className="text-xs font-mono text-slate-500 dark:text-slate-400 font-semibold">
+                                สีที่แสดงผลขณะนี้: <span className="font-bold text-slate-800 dark:text-slate-200">{previewColor}</span>
+                              </span>
+                            </div>
+                            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-4">
+                              <button
+                                type="button"
+                                style={{ backgroundColor: previewColor }}
+                                className="px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition-transform"
+                              >
+                                ปุ่มสีหลัก (Primary Button)
+                              </button>
+                              <span
+                                style={{
+                                  color: previewColor,
+                                  borderColor: previewColor,
+                                }}
+                                className="px-3 py-1 rounded-full text-xs font-bold border"
+                              >
+                                Badge สถานะ
+                              </span>
+                              <div className="flex-1 min-w-30 max-w-xs space-y-1">
+                                <div className="flex justify-between text-[10px] font-semibold text-slate-500">
+                                  <span>Progress Bar</span>
+                                  <span>75%</span>
+                                </div>
+                                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: "75%",
+                                      backgroundColor: previewColor,
+                                    }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
 

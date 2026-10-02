@@ -60,6 +60,42 @@ export function generateColorPalette(baseHex: string) {
   }
 }
 
+export interface DayColorConfig {
+  dayIndex: number
+  key: string
+  name: string
+  enName: string
+  defaultHex: string
+}
+
+export const DEFAULT_DAY_COLORS: Record<number, DayColorConfig> = {
+  0: { dayIndex: 0, key: "theme_day_color_sun", name: "วันอาทิตย์", enName: "Sunday", defaultHex: "#dc2626" },
+  1: { dayIndex: 1, key: "theme_day_color_mon", name: "วันจันทร์", enName: "Monday", defaultHex: "#eab308" },
+  2: { dayIndex: 2, key: "theme_day_color_tue", name: "วันอังคาร", enName: "Tuesday", defaultHex: "#ec4899" },
+  3: { dayIndex: 3, key: "theme_day_color_wed", name: "วันพุธ", enName: "Wednesday", defaultHex: "#059669" },
+  4: { dayIndex: 4, key: "theme_day_color_thu", name: "วันพฤหัสบดี", enName: "Thursday", defaultHex: "#ea580c" },
+  5: { dayIndex: 5, key: "theme_day_color_fri", name: "วันศุกร์", enName: "Friday", defaultHex: "#0284c7" },
+  6: { dayIndex: 6, key: "theme_day_color_sat", name: "วันเสาร์", enName: "Saturday", defaultHex: "#7c3aed" },
+}
+
+export function resolveEffectiveThemeColor(settings: Record<string, string>): string {
+  const isAuto = settings["theme_auto_color_enabled"] === "true"
+  if (isAuto) {
+    const todayIndex = new Date().getDay()
+    const dayConfig = DEFAULT_DAY_COLORS[todayIndex]
+    const customHex = settings[dayConfig.key]
+    if (customHex && /^#[0-9A-Fa-f]{6}$/.test(customHex)) {
+      return customHex
+    }
+    return dayConfig.defaultHex
+  }
+  const primary = settings["theme_primary_color"]
+  if (primary && /^#[0-9A-Fa-f]{6}$/.test(primary)) {
+    return primary
+  }
+  return "#5f06c4"
+}
+
 export function applyThemeColors(themeColor: string) {
   if (!themeColor || !/^#[0-9A-Fa-f]{6}$/.test(themeColor)) return
   if (typeof document === "undefined") return
@@ -145,13 +181,12 @@ export function DynamicBranding() {
         const d = res?.data || {}
         const faviconUrl = d["site_favicon"]
         const systemName = d["system_name"]
-        const backendThemeColor = d["theme_primary_color"]
 
-        // Update Theme Colors ONLY if backend returns a valid hex, or fallback to current cache (NEVER blindly overwrite with purple!)
+        // Resolve effective color considering auto day color or custom hex
         const targetColor =
-          backendThemeColor && /^#[0-9A-Fa-f]{6}$/.test(backendThemeColor)
-            ? backendThemeColor
-            : explicitColor || (typeof window !== "undefined" ? localStorage.getItem("cpms_theme_color") : null)
+          explicitColor ||
+          resolveEffectiveThemeColor(d) ||
+          (typeof window !== "undefined" ? localStorage.getItem("cpms_theme_color") : null)
 
         if (targetColor && /^#[0-9A-Fa-f]{6}$/.test(targetColor)) {
           applyThemeColors(targetColor)
@@ -205,10 +240,21 @@ export function DynamicBranding() {
       }
     }
 
+    // 3. Midnight rollover check (every 60 seconds)
+    let lastCheckedDay = new Date().getDay()
+    const midnightInterval = setInterval(() => {
+      const currentDay = new Date().getDay()
+      if (currentDay !== lastCheckedDay) {
+        lastCheckedDay = currentDay
+        updateBranding()
+      }
+    }, 60000)
+
     window.addEventListener("branding-updated", handleBrandingUpdated)
     window.addEventListener("storage", handleStorageChange)
 
     return () => {
+      clearInterval(midnightInterval)
       window.removeEventListener("branding-updated", handleBrandingUpdated)
       window.removeEventListener("storage", handleStorageChange)
     }
